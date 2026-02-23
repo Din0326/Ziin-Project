@@ -1,22 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { fetchDiscordGuilds, hasManagePermission } from "@/lib/discord-guilds";
 import { getServerSettings, upsertServerSettings } from "@/lib/local-db";
-
-type DiscordGuild = {
-  id: string;
-  permissions: string;
-};
-
-const ADMINISTRATOR_PERMISSION = BigInt(0x8);
-const MANAGE_GUILD_PERMISSION = BigInt(0x20);
-
-const hasManagePermission = (permissions: string) => {
-  const bits = BigInt(permissions);
-  return (
-    (bits & ADMINISTRATOR_PERMISSION) !== BigInt(0) || (bits & MANAGE_GUILD_PERMISSION) !== BigInt(0)
-  );
-};
 
 const normalizeTimezoneLabel = (value: string): string | null => {
   const raw = value.trim();
@@ -57,19 +43,12 @@ const normalizeTimezoneLabel = (value: string): string | null => {
 };
 
 const canManageServer = async (accessToken: string, serverId: string) => {
-  const response = await fetch("https://discord.com/api/users/@me/guilds", {
-    headers: {
-      Authorization: `Bearer ${accessToken}`
-    },
-    cache: "no-store"
-  });
-
-  if (!response.ok) {
+  const result = await fetchDiscordGuilds(accessToken);
+  if (!result.ok) {
     return false;
   }
 
-  const guilds = (await response.json()) as DiscordGuild[];
-  const guild = guilds.find((item) => item.id === serverId);
+  const guild = result.guilds.find((item) => item.id === serverId);
   if (!guild) {
     return false;
   }

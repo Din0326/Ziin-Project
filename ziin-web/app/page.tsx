@@ -399,8 +399,15 @@ export default function Page() {
       setPrefixInput(typeof data.prefix === "string" ? data.prefix : "");
 
       if (typeof data.timezone === "string") {
+        const timezoneIdFromValue =
+          data.timezone
+            .split(/\s+/)
+            .find((part) => part.includes("/") && part.length > 3) ?? null;
         const matchedTimezone = timezoneOptions.find((timezone) => {
           if (timezone.value === data.timezone || timezone.label === data.timezone) {
+            return true;
+          }
+          if (timezoneIdFromValue && timezone.value === timezoneIdFromValue) {
             return true;
           }
           return false;
