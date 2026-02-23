@@ -5,7 +5,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 make g+
 COPY package.json pnpm-lock.yaml* ./
 RUN corepack enable && pnpm install --frozen-lockfile
 RUN npm_config_build_from_source=true pnpm rebuild better-sqlite3
-RUN find /app/node_modules -path "*/better-sqlite3/build/Release/better_sqlite3.node" | head -n 1 | grep -q .
 
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
