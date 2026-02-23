@@ -1,0 +1,628 @@
+{
+    "489008089840877568": {
+        "id": 489008089840877568,
+        "notification_channel": 680011513331056640,
+        "all_streamers": [
+            "flashtw0722"
+        ],
+        "online_streamers": [],
+        "offline_streamers": [
+            "flashtw0722"
+        ],
+        "twitch_notification_text": "@everyone **{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {
+            "UCykb4L_oYre3eg84ziG_7bg": {
+                "id": "UCykb4L_oYre3eg84ziG_7bg",
+                "name": "Flash",
+                "yt_id_before": "ZjwZ3mintEo"
+            }
+        },
+        "youtube_notification_text": "@everyone **{ytber}** upload a video!!\n**{url}**"
+    },
+    "822774941677256724": {
+        "id": 822774941677256724,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "705877565549707345": {
+        "id": 705877565549707345,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "471892153593888778": {
+        "id": 471892153593888778,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "853255432524791808": {
+        "id": 853255432524791808,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "761969723662794802": {
+        "id": 761969723662794802,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "740505836543148044": {
+        "id": 740505836543148044,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "557863473716133898": {
+        "id": 557863473716133898,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "772819320258297907": {
+        "id": 772819320258297907,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "828286502432669748": {
+        "id": 828286502432669748,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "871782064746291200": {
+        "id": 871782064746291200,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "744551765805891614": {
+        "id": 744551765805891614,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "804604858090127360": {
+        "id": 804604858090127360,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "841790465447952485": {
+        "id": 841790465447952485,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "625729755366293505": {
+        "id": 625729755366293505,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "737830509798883378": {
+        "id": 737830509798883378,
+        "notification_channel": 737830510952185878,
+        "all_streamers": [
+            "godspy66"
+        ],
+        "online_streamers": [],
+        "offline_streamers": [
+            "godspy66"
+        ],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {
+            "UCykb4L_oYre3eg84ziG_7bg": {
+                "id": "UCykb4L_oYre3eg84ziG_7bg",
+                "name": "Flash",
+                "yt_id_before": "ZjwZ3mintEo"
+            }
+        },
+        "youtube_notification_text": "test {url}"
+    },
+    "961249448040734770": {
+        "id": 961249448040734770,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "717679064999133195": {
+        "id": 717679064999133195,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "873828413092270120": {
+        "id": 873828413092270120,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "846763015721582620": {
+        "id": 846763015721582620,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "893300017035628544": {
+        "id": 893300017035628544,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "803333489826463796": {
+        "id": 803333489826463796,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "645198572454936586": {
+        "id": 645198572454936586,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "841763723302404127": {
+        "id": 841763723302404127,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "734702777284165642": {
+        "id": 734702777284165642,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "874511449718947880": {
+        "id": 874511449718947880,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "662418813152657411": {
+        "id": 662418813152657411,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "846387590398476298": {
+        "id": 846387590398476298,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "772702907530870846": {
+        "id": 772702907530870846,
+        "notification_channel": 848963264063078430,
+        "all_streamers": [
+            "clk1999"
+        ],
+        "online_streamers": [],
+        "offline_streamers": [
+            "clk1999"
+        ],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": [
+            {
+                "UCOmHUn--16B90oW2L6FRR3A": {
+                    "id": "UCOmHUn--16B90oW2L6FRR3A",
+                    "name": "BLACKPINK",
+                    "yt_id_before": "OZdK1czhuv8"
+                }
+            }
+        ],
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "685441456554770458": {
+        "id": 685441456554770458,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "845559122832654337": {
+        "id": 845559122832654337,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "563641658101596191": {
+        "id": 563641658101596191,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "667934023452196885": {
+        "id": 667934023452196885,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "949941560525590588": {
+        "id": 949941560525590588,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "885771200217907221": {
+        "id": 885771200217907221,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "883022688006836234": {
+        "id": 883022688006836234,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "336442356738031616": {
+        "id": 336442356738031616,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "812355971975348245": {
+        "id": 812355971975348245,
+        "notification_channel": 812393194926374993,
+        "all_streamers": [
+            "mumi0617"
+        ],
+        "online_streamers": [],
+        "offline_streamers": [
+            "mumi0617"
+        ],
+        "twitch_notification_text": "@everyone **{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": [
+            {}
+        ],
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "927415454488744087": {
+        "id": 927415454488744087,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "456095557350326295": {
+        "id": 456095557350326295,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "801399942571753492": {
+        "id": 801399942571753492,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "948973956847788062": {
+        "id": 948973956847788062,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "775337471722258462": {
+        "id": 775337471722258462,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "973606984542728293": {
+        "id": 973606984542728293,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "709580382286250074": {
+        "id": 709580382286250074,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "815492182517612605": {
+        "id": 815492182517612605,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "917165302108794960": {
+        "id": 917165302108794960,
+        "notification_channel": 986732925666078850,
+        "all_streamers": [
+            "shappo030"
+        ],
+        "online_streamers": [],
+        "offline_streamers": [
+            "shappo030"
+        ],
+        "twitch_notification_text": "<@&986736601155645452> {streamer} \u958b\u81fa\u56c9~\u5feb\u9ede\u4f86\u770b\u6211\u641e\u800d030{url}",
+        "yt_youtuber": {},
+        "youtube_notification_text": "{ytber} upload a video!!\n{url}"
+    },
+    "566974099990249472": {
+        "id": 566974099990249472,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "974112921162481775": {
+        "id": 974112921162481775,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "974165166746927105": {
+        "id": 974165166746927105,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "909814988380717076": {
+        "id": 909814988380717076,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "865145983200264202": {
+        "id": 865145983200264202,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "1004919883387121664": {
+        "id": 1004919883387121664,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "985045581707739136": {
+        "id": 985045581707739136,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "1000162227992662106": {
+        "id": 1000162227992662106,
+        "notification_channel": 1012148483643420793,
+        "all_streamers": [
+            "godspy66"
+        ],
+        "online_streamers": [],
+        "offline_streamers": [
+            "godspy66"
+        ],
+        "twitch_notification_text": "@everyone **{streamer}** \u516d\u516d\u958b\u53f0\u5566\u6b61\u8fce\u5927\u5bb6\u4f86\u6536\u770b!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "934796624306245632": {
+        "id": 934796624306245632,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "994804899290288259": {
+        "id": 994804899290288259,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    },
+    "1038408671312498788": {
+        "id": 1038408671312498788,
+        "notification_channel": null,
+        "all_streamers": [],
+        "online_streamers": [],
+        "offline_streamers": [],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {},
+        "youtube_notification_text": "**{ytber}** upload a video!!\n**{url}**"
+    }
+}

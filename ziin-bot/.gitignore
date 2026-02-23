@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Logs
+logs/
+*.log
+data/local.db
+
+# Environment
+.env
+
+# Secrets (do NOT commit)
+secrets/
+*.session
+*.session-journal
+client_secrets.json
+credentials.json
+serviceAccount.json
+googleacc.json
+Din.session*
+
+# OS
+.DS_Store
+Thumbs.db

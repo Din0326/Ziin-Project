@@ -1,0 +1,28 @@
+{
+    "737830509798883378": {
+        "id": 737830509798883378,
+        "notification_channel": 737830510952185878,
+        "all_streamers": [
+            "godspy66",
+            "inori4723"
+        ],
+        "online_streamers": [],
+        "offline_streamers": [
+            "godspy66",
+            "inori4723"
+        ],
+        "twitch_notification_text": "**{streamer}** is live now!!\n**{url}**",
+        "yt_youtuber": {
+            "UCykb4L_oYre3eg84ziG_7bg": {
+                "id": "UCykb4L_oYre3eg84ziG_7bg",
+                "name": "FLASH",
+                "videoId": "0ASq-bbmBPg",
+                "streamId": "H7r-glK-yso",
+                "shortId": "Z1CfarVlhbA"
+            }
+        },
+        "youtube_notification_text": "test {url}",
+        "twitch_notification_channel": 737830510952185878,
+        "youtube_notification_channel": 737830510952185878
+    }
+}

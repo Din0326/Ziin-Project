@@ -1,0 +1,29 @@
+services:
+  web:
+    build:
+      context: ./ziin-web
+      dockerfile: Dockerfile
+    env_file:
+      - ./.env
+    environment:
+      LOCAL_DB_PATH: /shared-data/local.db
+    volumes:
+      - shared_data:/shared-data
+    ports:
+      - "6001:3000"
+    restart: unless-stopped
+
+  bot:
+    build:
+      context: ./ziin-bot
+      dockerfile: Dockerfile
+    env_file:
+      - ./.env
+    environment:
+      LOCAL_DB_PATH: /shared-data/local.db
+    volumes:
+      - shared_data:/shared-data
+    restart: unless-stopped
+
+volumes:
+  shared_data:
