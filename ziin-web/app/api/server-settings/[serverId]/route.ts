@@ -18,48 +18,39 @@ const hasManagePermission = (permissions: string) => {
   );
 };
 
-const normalizeTimezoneToHourOffset = (value: string): string | null => {
+const normalizeTimezoneLabel = (value: string): string | null => {
   const raw = value.trim();
   if (!raw) {
     return null;
   }
+
+  const formatOffsetByZone = (zone: string): string => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      timeZoneName: "shortOffset"
+    }).formatToParts(new Date());
+    const value = parts.find((part) => part.type === "timeZoneName")?.value ?? "GMT+0";
+    return value.replace("GMT", "UTC");
+  };
 
   if (/^-?\d+$/.test(raw)) {
     const hours = Number.parseInt(raw, 10);
     if (Number.isNaN(hours) || hours < -12 || hours > 14) {
       return null;
     }
-    return String(hours);
+    if (hours === 8) {
+      return "UTC+8 Asia/Taipei";
+    }
+    return `UTC${hours >= 0 ? "+" : ""}${hours}`;
+  }
+
+  if (/^(UTC|GMT)\s*[+-]?\d{1,2}(?::\d{2})?(?:\s+\S+)?$/i.test(raw)) {
+    return raw.replace(/^GMT/i, "UTC");
   }
 
   try {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone: raw,
-      timeZoneName: "shortOffset"
-    }).formatToParts(new Date());
-    const tzPart = parts.find((part) => part.type === "timeZoneName")?.value ?? "GMT";
-    const match = tzPart.match(/^GMT(?:(\+|-)(\d{1,2})(?::(\d{2}))?)?$/);
-    if (!match) {
-      return null;
-    }
-
-    if (!match[1]) {
-      return "0";
-    }
-
-    const sign = match[1] === "-" ? -1 : 1;
-    const hoursPart = Number.parseInt(match[2] ?? "0", 10);
-    const minutesPart = Number.parseInt(match[3] ?? "0", 10);
-    if (Number.isNaN(hoursPart) || Number.isNaN(minutesPart)) {
-      return null;
-    }
-
-    // Bot currently stores timezone as whole hours.
-    const hours = sign * Math.floor(hoursPart + minutesPart / 60);
-    if (hours < -12 || hours > 14) {
-      return null;
-    }
-    return String(hours);
+    const offset = formatOffsetByZone(raw);
+    return `${offset} ${raw}`;
   } catch {
     return null;
   }
@@ -116,7 +107,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ serverId:
   return NextResponse.json({
     settings: {
       prefix: data.Prefix ?? "",
-      timezone: typeof data.TimeZone === "string" ? normalizeTimezoneToHourOffset(data.TimeZone) : null,
+      timezone: typeof data.TimeZone === "string" ? normalizeTimezoneLabel(data.TimeZone) : null,
       language: data.Language ?? null
     }
   });
@@ -141,7 +132,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ ser
     updateData.Prefix = payload.prefix.trim().slice(0, 32);
   }
   if (typeof payload.timezone === "string") {
-    const normalizedTimezone = normalizeTimezoneToHourOffset(payload.timezone);
+    const normalizedTimezone = normalizeTimezoneLabel(payload.timezone);
     if (!normalizedTimezone) {
       return NextResponse.json({ message: "Invalid timezone" }, { status: 400 });
     }

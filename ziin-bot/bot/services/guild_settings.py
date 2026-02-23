@@ -3,12 +3,11 @@
 import json
 import logging
 import os
-from datetime import datetime
 from typing import Any, Dict, List, Tuple
-import zoneinfo
 
 import discord
 from bot.services.storage import execute, fetchall, fetchone, now_ts
+from bot.utils.timezone import parse_utc_offset_hours
 
 logger = logging.getLogger("__main__")
 _DEBUG_GUILD_SETTINGS = os.getenv("DEBUG_GUILD_SETTINGS", "1") == "1"
@@ -20,29 +19,7 @@ def _debug_gs(message: str) -> None:
 
 
 def _normalize_timezone_value(value: Any, default: str = "0") -> str:
-    # Bot internals expect integer UTC offsets (hours), but web may send IANA zones.
-    if value is None:
-        return default
-
-    raw = str(value).strip()
-    if not raw:
-        return default
-
-    try:
-        hours = int(raw)
-        return str(hours)
-    except (TypeError, ValueError):
-        pass
-
-    try:
-        tz = zoneinfo.ZoneInfo(raw)
-        offset = datetime.now(tz=tz).utcoffset()
-        if offset is None:
-            return default
-        hours = int(offset.total_seconds() // 3600)
-        return str(hours)
-    except Exception:
-        return default
+    return str(parse_utc_offset_hours(value, default=int(default)))
 
 
 def build_default_guild_info(guild: discord.Guild) -> Dict[str, Any]:

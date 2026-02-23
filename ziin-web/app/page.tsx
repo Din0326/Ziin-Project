@@ -69,7 +69,7 @@ export default function Page() {
 
     return zones.map((zone) => ({
       value: zone,
-      label: zone === "Asia/Taipei" ? "UTC+8 Taipei" : `${formatOffset(zone)} ${zone.replaceAll("_", " ")}`
+      label: `${formatOffset(zone)} ${zone}`
     }));
   }, []);
   const languageOptions = React.useMemo(
@@ -399,14 +399,8 @@ export default function Page() {
       setPrefixInput(typeof data.prefix === "string" ? data.prefix : "");
 
       if (typeof data.timezone === "string") {
-        const normalizedOffsetPrefix = /^-?\d+$/.test(data.timezone)
-          ? `UTC${Number.parseInt(data.timezone, 10) >= 0 ? "+" : ""}${Number.parseInt(data.timezone, 10)}`
-          : null;
         const matchedTimezone = timezoneOptions.find((timezone) => {
           if (timezone.value === data.timezone || timezone.label === data.timezone) {
-            return true;
-          }
-          if (normalizedOffsetPrefix && timezone.label.startsWith(normalizedOffsetPrefix)) {
             return true;
           }
           return false;

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict
-import zoneinfo
 
 from bot.services.guild_settings import get_guild_settings
+from bot.utils.timezone import parse_utc_offset_hours
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 I18N_DIR = BASE_DIR / "data" / "i18n"
@@ -25,17 +24,7 @@ class GuildContext:
 
 
 def _parse_timezone(value: Any, default: int = 0) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        try:
-            tz = zoneinfo.ZoneInfo(str(value))
-            offset = datetime.now(tz=tz).utcoffset()
-            if offset is None:
-                return default
-            return int(offset.total_seconds() // 3600)
-        except Exception:
-            return default
+    return parse_utc_offset_hours(value, default=default)
 
 
 def get_lang_pack(language: str | None) -> Dict[str, Any]:
