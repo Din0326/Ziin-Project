@@ -8,7 +8,7 @@ services:
     environment:
       LOCAL_DB_PATH: /shared-data/local.db
     volumes:
-      - shared_data:/shared-data
+      - ./data:/shared-data
     ports:
       - "6001:3000"
     restart: unless-stopped
@@ -22,8 +22,5 @@ services:
     environment:
       LOCAL_DB_PATH: /shared-data/local.db
     volumes:
-      - shared_data:/shared-data
+      - ./data:/shared-data
     restart: unless-stopped
-
-volumes:
-  shared_data:
