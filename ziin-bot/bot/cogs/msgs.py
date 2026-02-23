@@ -1,15 +1,13 @@
-﻿import random
+import random
 import re
 import time
 from datetime import datetime, timedelta
-
 import discord
 from bot.core.classed import Cog_Extension
 from bot.services.guild_settings import get_guild_settings
 from bot.services.user_stats import upsert_user_guild_last_message
+from bot.utils.timezone import format_local_time
 from discord.ext import commands
-
-
 class Msgs(Cog_Extension):
 
 	async def imgc(self, msg: str):
@@ -54,17 +52,12 @@ class Msgs(Cog_Extension):
 	@commands.Cog.listener()
 	async def on_message(self, msg: str):	
 		if str(msg.channel.type) != "private":
-
-
-
-
-			#?脣??敺?甈∟??舐???
+			#??????綽?????????
 			data = get_guild_settings(msg.guild.id)
 			guild_tz = data.get('TimeZone') or 0
-			msg_time = (msg.created_at + timedelta(hours=int(guild_tz))).strftime("%d/%m/%Y %H:%M:%S")
+			msg_time = format_local_time(msg.created_at, guild_tz, "%d/%m/%Y %H:%M:%S")
 			upsert_user_guild_last_message(msg.author.id, msg.guild.id, msg_time)
-####	 	??閫貊
-			#擐祇???踹?
+####	 	????怨?謒?			#??????頦?
 			if msg.channel.id == 903081545311617034 and msg.author != self.bot.user:
 				if msg.author.id == 458165526363897856:
 					return
@@ -72,7 +65,7 @@ class Msgs(Cog_Extension):
 				await msg.delete()
 				await msg.channel.send(con)
 				#await msg.delete()
-				#susu蝢斤?
+				#susu?Ｘ?
 				if msg.channel.id == 625729755991506986 and msg.author != self.bot.user:
 					if msg.content.lower() == 'matt':
 						ava = self.bot.get_user(166901140162740224).avatar.url
@@ -83,17 +76,17 @@ class Msgs(Cog_Extension):
 				if msg.content in keys_List and msg.author != self.bot.user:
 					await msg.channel.send("蝚香")
 				#if msg.content in tdata.keys() and msg.author != self.bot.user:
-			#flash蝢斤?
+			#flash?Ｘ?
 			if msg.guild.id == 489008089840877568 and msg.author != self.bot.user:
-				risky = ['nitro','discord','gift','@everyone','free','?祥','game','test']
+				risky = ['nitro','discord','gift','@everyone','free','??孕','game','test']
 				#if 'http://steancomunnity.ru/'in msg.content.lower() or 'discord nitro for free' in msg.content.lower():
-				#	await msg.author.ban(reason="????")
-				#	await msg.channel.send(f'{msg.author.mention}?甇餃 ??: ?潮擳雯?\n||ID : {msg.author.id}|| \nR.I.P. \n{msg.author.joined_at.strftime("%Y-%m-%d")} ~ {date.today()}')
+				#	await msg.author.ban(reason="??????")
+				#	await msg.channel.send(f'{msg.author.mention}???????賹?: ?瞏捍蹓選?啾垓???\n||ID : {msg.author.id}|| \nR.I.P. \n{msg.author.joined_at.strftime("%Y-%m-%d")} ~ {date.today()}')
 				#elif '.ru/' in msg.content.lower():
 				#	admin = msg.guild.get_role(489009209044631553)
 				#	if 'new/?partner=' in msg.content.lower() and 'token=' in msg.content.lower():
-				#		await msg.author.ban(reason="????")
-				#		await msg.channel.send(f'{msg.author.mention}?甇餃 ??: ?潮擳雯?\n||ID : {msg.author.id}|| \nR.I.P. \n{msg.author.joined_at.strftime("%Y-%m-%d")} ~ {date.today()}')
+				#		await msg.author.ban(reason="??????")
+				#		await msg.channel.send(f'{msg.author.mention}???????賹?: ?瞏捍蹓選?啾垓???\n||ID : {msg.author.id}|| \nR.I.P. \n{msg.author.joined_at.strftime("%Y-%m-%d")} ~ {date.today()}')
 				#	else:
 				#		await msg.channel.send(f"{admin.mention} check message.")
 				count = 0
@@ -108,7 +101,7 @@ class Msgs(Cog_Extension):
 				if count >= 3:
 					await msg.add_reaction(":thinking1:706505677450903652")	
 
-####	 ?芸?摮?
+####	 ????殉朵?
 			if 'https://' in msg.content.lower() and 'jpg' in msg.content.lower() and msg.author != self.bot.user:
 				await self.imgc(msg)
 			if 'https://' in msg.content.lower() and 'png' in msg.content.lower() and msg.author != self.bot.user:
@@ -142,11 +135,11 @@ class Msgs(Cog_Extension):
 			if msg.content == "z!link":
 				user = self.bot.get_user(371871742916034561)
 				user_img = user.avatar or user.default_avatar
-				embed = discord.Embed(title=f"{self.bot.user.name} ?隢?蝯?暺?!", url="https://discord.com/oauth2/authorize?client_id=1433679331284090931&permissions=8&integration_type=0&scope=bot+applications.commands",timestamp=datetime.utcnow())
+				embed = discord.Embed(title=f"{self.bot.user.name} ???ｇ????綜等?!", url="https://discord.com/oauth2/authorize?client_id=1433679331284090931&permissions=8&integration_type=0&scope=bot+applications.commands",timestamp=datetime.utcnow())
 				embed.set_author(name=self.bot.user, icon_url=self.bot.user.avatar.url)
 				embed.set_thumbnail(url=self.bot.user.avatar.url)
 				embed.set_footer(icon_url=(user_img.url),text=f'{user}')
-				fields = [("Owner??????身?韌", "**dinnn._o?????z!**\n\n?隢ot?閬?蝞∠??⊥????雿輻Log?  \n?隢?隢??仿 z!help 隤芣??稞n???唬遙雿?憿??臬遣霅堆?隢脣 [Support Server](https://discord.gg/EtQX9RB9Xr)", True)]
+				fields = [("Owner????????????澈???", "**dinnn._o??????????z!**\n\n???ｇ?ot???秋撮??????????????輯撒?og?賹?  \n???ｇ???ｇ???隞遴? z!help ?方??蝔?????祇??遴???選???祇????ｇ??? [Support Server](https://discord.gg/EtQX9RB9Xr)", True)]
 		
 				for name, value, inline in fields:
 					embed.add_field(name=name, value=value, inline=inline)
@@ -154,4 +147,3 @@ class Msgs(Cog_Extension):
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Msgs(bot))
-

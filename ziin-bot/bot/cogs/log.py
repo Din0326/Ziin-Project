@@ -1,4 +1,4 @@
-﻿import re
+import re
 from datetime import datetime, timedelta
 
 import discord
@@ -13,6 +13,7 @@ from bot.services.user_stats import (add_stream_total_seconds,
                                      upsert_user_voice_join,
                                      upsert_user_voice_leave)
 from bot.utils.guild_context import get_lang_pack
+from bot.utils.timezone import format_local_time
 from discord import Embed
 from discord.ext import commands
 
@@ -134,7 +135,7 @@ class Log(Cog_Extension):
 					embed.set_footer(icon_url=(action_user),text=f'{self.bot.user}')
 					fields = [(Lang["gc_name"], channel, False),
 							  (Lang["gc_id"], f"``{channel.id}``",False),
-							  (Lang["gc_created_at"], (channel.created_at + timedelta(hours=int(guild_tz))).strftime("%d-%m-%Y %H:%M:%S"),False)]
+							  (Lang["gc_created_at"], format_local_time(channel.created_at, guild_tz, "%d-%m-%Y %H:%M:%S"),False)]
 					for name, value, inline in fields:
 						embed.add_field(name=name, value=value, inline=inline)
 			if channelDelete == "on" and guildchannel is not None:
@@ -276,8 +277,8 @@ class Log(Cog_Extension):
 		fields = [(Lang["mu_mention"], member.mention, True),
 				  (Lang["mu_id"], member.id, True),
 				  (Lang["mu_bot"], member.bot, True),
-				  (Lang["mu_created_at"], (member.created_at + timedelta(hours=int(guild_tz))).strftime("%d-%m-%Y %H:%M:%S"), True),
-				  (Lang["mu_joined_at"], (member.joined_at + timedelta(hours=int(guild_tz))).strftime("%d-%m-%Y %H:%M:%S"), True)]
+				  (Lang["mu_created_at"], format_local_time(member.created_at, guild_tz, "%d-%m-%Y %H:%M:%S"), True),
+				  (Lang["mu_joined_at"], format_local_time(member.joined_at, guild_tz, "%d-%m-%Y %H:%M:%S"), True)]
 
 		for name, value, inline in fields:
 			embed.add_field(name=name, value=value, inline=inline)
@@ -311,9 +312,9 @@ class Log(Cog_Extension):
 				fields = [(Lang["mu_mention"], member.mention, True),
 						  (Lang["mu_id"], member.id, True),
 						  (Lang["mu_bot"], member.bot, True),
-						  (Lang["mu_created_at"], (member.created_at + timedelta(hours=int(guild_tz))).strftime("%d-%m-%Y %H:%M:%S"), True),
-						  (Lang["mu_joined_at"], (member.joined_at + timedelta(hours=int(guild_tz))).strftime("%d-%m-%Y %H:%M:%S"), True),
-						  (Lang["mu_leaved_at"], (datetime.now() + timedelta(hours=int(guild_tz))).strftime("%d-%m-%Y %H:%M:%S"), True),
+						  (Lang["mu_created_at"], format_local_time(member.created_at, guild_tz, "%d-%m-%Y %H:%M:%S"), True),
+						  (Lang["mu_joined_at"], format_local_time(member.joined_at, guild_tz, "%d-%m-%Y %H:%M:%S"), True),
+						  (Lang["mu_leaved_at"], format_local_time(datetime.utcnow(), guild_tz, "%d-%m-%Y %H:%M:%S"), True),
 						  (Lang["mu_operator"], entry.user.mention,True)]
 				for name, value, inline in fields:
 					embed.add_field(name=name, value=value, inline=inline)
@@ -328,9 +329,9 @@ class Log(Cog_Extension):
 				fields = [(Lang["mu_mention"], member.mention, True),
 						  (Lang["mu_id"], member.id, True),
 						  (Lang["mu_bot"], member.bot, True),
-						  (Lang["mu_created_at"], (member.created_at + timedelta(hours=int(guild_tz))).strftime("%d-%m-%Y %H:%M:%S"), True),
-						  (Lang["mu_joined_at"], (member.joined_at + timedelta(hours=int(guild_tz))).strftime("%d-%m-%Y %H:%M:%S"), True),
-						  (Lang["mu_leaved_at"], (datetime.now() + timedelta(hours=int(guild_tz))).strftime("%d-%m-%Y %H:%M:%S"), True),
+						  (Lang["mu_created_at"], format_local_time(member.created_at, guild_tz, "%d-%m-%Y %H:%M:%S"), True),
+						  (Lang["mu_joined_at"], format_local_time(member.joined_at, guild_tz, "%d-%m-%Y %H:%M:%S"), True),
+						  (Lang["mu_leaved_at"], format_local_time(datetime.utcnow(), guild_tz, "%d-%m-%Y %H:%M:%S"), True),
 						  (Lang["mu_operator"], entry.user.mention,True)]
 				for name, value, inline in fields:
 					embed.add_field(name=name, value=value, inline=inline)
@@ -345,9 +346,9 @@ class Log(Cog_Extension):
 				fields = [(Lang["mu_mention"], member.mention, True),
 						  (Lang["mu_id"], member.id, True),
 						  (Lang["mu_bot"], member.bot, True),
-						  (Lang["mu_created_at"], (member.created_at + timedelta(hours=int(guild_tz))).strftime("%d-%m-%Y %H:%M:%S"), True),
-						  (Lang["mu_joined_at"], (member.joined_at + timedelta(hours=int(guild_tz))).strftime("%d-%m-%Y %H:%M:%S"), True),
-						  (Lang["mu_leaved_at"], (datetime.now() + timedelta(hours=int(guild_tz))).strftime("%d-%m-%Y %H:%M:%S"), True)]
+						  (Lang["mu_created_at"], format_local_time(member.created_at, guild_tz, "%d-%m-%Y %H:%M:%S"), True),
+						  (Lang["mu_joined_at"], format_local_time(member.joined_at, guild_tz, "%d-%m-%Y %H:%M:%S"), True),
+						  (Lang["mu_leaved_at"], format_local_time(datetime.utcnow(), guild_tz, "%d-%m-%Y %H:%M:%S"), True)]
 				for name, value, inline in fields:
 					embed.add_field(name=name, value=value, inline=inline)
 			if Remove == "on" and memberchannel is not None:
@@ -411,7 +412,7 @@ class Log(Cog_Extension):
 			fields = [(Lang["mu_mention"], f"{user.name}#{user.discriminator}", True),
 					  (Lang["mu_id"], user.id, True),
 					  (Lang["mu_bot"], user.bot, True),
-					  (Lang["mu_unbanned_at"], (datetime.utcnow() + timedelta(hours=int(guild_tz))).strftime("%d-%m-%Y %H:%M:%S"), True),
+					  (Lang["mu_unbanned_at"], format_local_time(datetime.utcnow(), guild_tz, "%d-%m-%Y %H:%M:%S"), True),
 					  (Lang["mu_operator"], entry.user.mention,False)]
 	
 			for name, value, inline in fields:
@@ -656,7 +657,7 @@ class Log(Cog_Extension):
 		Leave = log.get('voiceChannelLeave')
 		Update = log.get('voiceStateUpdate')
 		Switch = log.get('voiceChannelSwitch')
-		dt_format = (datetime.utcnow() + timedelta(hours=int(guild_tz))).strftime(timestr)
+		dt_format = format_local_time(datetime.utcnow(), guild_tz, timestr)
 		if member.bot:
 			return
 

@@ -3,7 +3,9 @@
 import json
 import logging
 import os
+from datetime import datetime
 from typing import Any, Dict, List, Tuple
+import zoneinfo
 
 import discord
 from bot.services.storage import execute, fetchall, fetchone, now_ts
@@ -15,6 +17,32 @@ _DEBUG_GUILD_SETTINGS = os.getenv("DEBUG_GUILD_SETTINGS", "1") == "1"
 def _debug_gs(message: str) -> None:
     if _DEBUG_GUILD_SETTINGS:
         logger.info("[guild_settings] %s", message)
+
+
+def _normalize_timezone_value(value: Any, default: str = "0") -> str:
+    # Bot internals expect integer UTC offsets (hours), but web may send IANA zones.
+    if value is None:
+        return default
+
+    raw = str(value).strip()
+    if not raw:
+        return default
+
+    try:
+        hours = int(raw)
+        return str(hours)
+    except (TypeError, ValueError):
+        pass
+
+    try:
+        tz = zoneinfo.ZoneInfo(raw)
+        offset = datetime.now(tz=tz).utcoffset()
+        if offset is None:
+            return default
+        hours = int(offset.total_seconds() // 3600)
+        return str(hours)
+    except Exception:
+        return default
 
 
 def build_default_guild_info(guild: discord.Guild) -> Dict[str, Any]:
@@ -81,7 +109,7 @@ def _row_to_guild_settings(row) -> Dict[str, Any]:
         "Name": row["name"] or "",
         "ID": int(row["server_id"]),
         "Language": row["language"] or "English",
-        "TimeZone": row["timezone"] or "0",
+        "TimeZone": _normalize_timezone_value(row["timezone"], default="0"),
         "Prefix": row["prefix"] or "z!",
         "guild_log_id": int(row["guild_log_id"]) if row["guild_log_id"] else None,
         "member_log_id": int(row["member_log_id"]) if row["member_log_id"] else None,
@@ -185,6 +213,8 @@ def update_guild_settings(guild_id: int, fields: Dict[str, Any]) -> None:
             continue
         if key == "ignore_channel":
             value = json.dumps(value if isinstance(value, list) else [], ensure_ascii=False)
+        if key == "TimeZone":
+            value = _normalize_timezone_value(value, default="0")
         updates.append(f"{column} = ?")
         params.append(str(value) if value is not None and column.endswith("_id") else value)
 

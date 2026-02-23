@@ -399,9 +399,18 @@ export default function Page() {
       setPrefixInput(typeof data.prefix === "string" ? data.prefix : "");
 
       if (typeof data.timezone === "string") {
-        const matchedTimezone = timezoneOptions.find(
-          (timezone) => timezone.value === data.timezone || timezone.label === data.timezone
-        );
+        const normalizedOffsetPrefix = /^-?\d+$/.test(data.timezone)
+          ? `UTC${Number.parseInt(data.timezone, 10) >= 0 ? "+" : ""}${Number.parseInt(data.timezone, 10)}`
+          : null;
+        const matchedTimezone = timezoneOptions.find((timezone) => {
+          if (timezone.value === data.timezone || timezone.label === data.timezone) {
+            return true;
+          }
+          if (normalizedOffsetPrefix && timezone.label.startsWith(normalizedOffsetPrefix)) {
+            return true;
+          }
+          return false;
+        });
         setSelectedTimezone(matchedTimezone?.value);
         setTimezoneQuery(matchedTimezone?.label ?? data.timezone);
       } else {

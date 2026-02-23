@@ -1,4 +1,4 @@
-﻿import time
+import time
 from datetime import datetime, timedelta
 from platform import python_version
 from typing import Optional
@@ -8,6 +8,7 @@ from bot.core.classed import Cog_Extension
 from bot.services.user_stats import (get_user_guild_stats,
                                      get_user_voice_channel_stats)
 from bot.utils.guild_context import get_ctx_lang_tz, get_guild_context
+from bot.utils.timezone import format_local_time
 from discord import Activity, ActivityType, Embed, Member, Role
 from discord import __version__ as discord_version
 from discord.ext import commands
@@ -246,8 +247,8 @@ class Meta(Cog_Extension):
 				  (Lang["ui_Bot"], target.bot, True),
 				  (Lang["ui_Boost"], bool(target.premium_since), True),
 				  (Lang["ui_contribution"],contribution,True),
-				  (Lang["ui_created_at"], (target.created_at + timedelta(hours=int(guild_tz))).strftime("%d/%m/%Y\n%H:%M:%S"), True),
-				  (Lang["ui_joined_at"], (target.joined_at + timedelta(hours=int(guild_tz))).strftime("%d/%m/%Y\n%H:%M:%S"), True),
+				  (Lang["ui_created_at"], format_local_time(target.created_at, guild_tz, "%d/%m/%Y\n%H:%M:%S"), True),
+				  (Lang["ui_joined_at"], format_local_time(target.joined_at, guild_tz, "%d/%m/%Y\n%H:%M:%S"), True),
 				  (Lang["ui_last_msg"],last_message_time.replace(" ","\n"),True)]
 
 		for name, value, inline in fields:
@@ -339,7 +340,7 @@ class Meta(Cog_Extension):
 				  (Lang["ri_ID"], target.id, True),
 				  (Lang["ri_mention"], target.mention, True),
 				  (Lang["ri_mentionable"], target.mentionable, True),
-				  (Lang["ri_created_at"], (target.created_at + timedelta(hours=int(guild_tz))).strftime("%Y-%m-%d %H:%M:%S"), True),
+				  (Lang["ri_created_at"], format_local_time(target.created_at, guild_tz, "%Y-%m-%d %H:%M:%S"), True),
 				  (Lang["ri_colour"], target.colour, True),
 				  (Lang["ri_position"],target.position,True),
 				  (Lang["ri_Members-count"], len(target.members), True)]
@@ -382,7 +383,7 @@ class Meta(Cog_Extension):
 				  (Lang["gi_region"], ctx.guild.region, True),
 				  (Lang["gi_Member-count"], len(ctx.guild.members), True),
 				  #(Lang["gi_Got-BAN"], len(await ctx.guild.bans()), True),
-				  (Lang["gi_created_at"], (ctx.guild.created_at + timedelta(hours=int(guild_tz))).strftime("%d/%m/%Y %H:%M:%S"), True),
+				  (Lang["gi_created_at"], format_local_time(ctx.guild.created_at, guild_tz, "%d/%m/%Y %H:%M:%S"), True),
 				  (Lang["gi_Human"], len(list(filter(lambda m: not m.bot, ctx.guild.members))), True),
 				  (Lang["gi_Bot"], len(list(filter(lambda m: m.bot, ctx.guild.members))), True),
 				  (Lang["gi_statuses"], f"? {statuses[0]} ?? {statuses[1]} ? {statuses[2]} ??{statuses[3]}", True),

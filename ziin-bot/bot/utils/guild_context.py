@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict
+import zoneinfo
 
 from bot.services.guild_settings import get_guild_settings
 
@@ -26,7 +28,14 @@ def _parse_timezone(value: Any, default: int = 0) -> int:
     try:
         return int(value)
     except (TypeError, ValueError):
-        return default
+        try:
+            tz = zoneinfo.ZoneInfo(str(value))
+            offset = datetime.now(tz=tz).utcoffset()
+            if offset is None:
+                return default
+            return int(offset.total_seconds() // 3600)
+        except Exception:
+            return default
 
 
 def get_lang_pack(language: str | None) -> Dict[str, Any]:
