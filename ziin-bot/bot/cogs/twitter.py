@@ -291,11 +291,10 @@ class Twitter(Cog_Extension):
                     _debug_twitter(f"guild={guild.id} handle={handle} new={tweet_id} but no notify channel")
                     continue
 
-                text = (
-                    guild_data.get("twitter_notification_text", "{xuser} 發文了，點進來看一下吧")
-                    .replace("{xuser}", item["name"])
-                    .replace("{url}", tweet_url)
-                )
+                template = guild_data.get("twitter_notification_text")
+                if not isinstance(template, str) or not template:
+                    template = "{xuser} ???????????"
+                text = template.replace("{xuser}", item["name"]).replace("{url}", tweet_url)
                 embed = discord.Embed(
                     title=f"{display_name} (@{screen_name})",
                     url=tweet_url,
@@ -305,9 +304,14 @@ class Twitter(Cog_Extension):
                 if image_url and not video_url:
                     embed.set_image(url=image_url)
                 if video_url:
-                    embed.add_field(name="影片", value=video_url, inline=False)
-                embed.set_footer(text="X · Made by Ziin Bot")
-                parsed_time = discord.utils.parse_time(created_at) if created_at else None
+                    embed.add_field(name="??", value=video_url, inline=False)
+                embed.set_footer(text="X ? Made by Ziin Bot")
+                parsed_time = None
+                if created_at:
+                    try:
+                        parsed_time = discord.utils.parse_time(created_at)
+                    except Exception as exc:
+                        _debug_twitter(f"parse created_at failed handle={handle} value={created_at!r} error={exc!r}")
                 embed.timestamp = parsed_time or discord.utils.utcnow()
                 try:
                     message_parts = [text, tweet_url]
