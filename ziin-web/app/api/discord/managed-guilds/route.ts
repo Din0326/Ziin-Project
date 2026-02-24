@@ -1,11 +1,9 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
 import { fetchDiscordGuilds, hasManagePermission } from "@/lib/discord-guilds";
+import { getDiscordAccessToken } from "@/lib/server-auth";
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  const accessToken = session?.accessToken;
+export async function GET(request: NextRequest) {
+  const accessToken = await getDiscordAccessToken(request);
 
   if (!accessToken) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });

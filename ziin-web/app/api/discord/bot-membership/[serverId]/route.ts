@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { fetchDiscordGuilds, hasManagePermission } from "@/lib/discord-guilds";
+import { getDiscordAccessToken } from "@/lib/server-auth";
 
 let cachedBotClientId: string | null = null;
 
@@ -36,8 +35,8 @@ const resolveBotClientId = async (botToken: string): Promise<string | null> => {
   return null;
 };
 
-const buildInviteUrl = (serverId: string, clientId: string) => {
-  const baseUrl = process.env.NEXTAUTH_URL ?? "http://3.137.160.188:6001";
+const buildInviteUrl = (serverId: string, clientId: string, origin: string) => {
+  const baseUrl = process.env.NEXTAUTH_URL ?? origin;
   const params = new URLSearchParams({
     client_id: clientId,
     permissions: "8",
@@ -51,11 +50,10 @@ const buildInviteUrl = (serverId: string, clientId: string) => {
   return `https://discord.com/oauth2/authorize?${params.toString()}`;
 };
 
-export async function GET(_: NextRequest, context: { params: Promise<{ serverId: string }> }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ serverId: string }> }) {
   const { serverId } = await context.params;
 
-  const session = await getServerSession(authOptions);
-  const accessToken = session?.accessToken;
+  const accessToken = await getDiscordAccessToken(request);
   if (!accessToken) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
@@ -89,6 +87,6 @@ export async function GET(_: NextRequest, context: { params: Promise<{ serverId:
   const inGuild = response.ok;
   return NextResponse.json({
     inGuild,
-    inviteUrl: buildInviteUrl(serverId, botClientId)
+    inviteUrl: buildInviteUrl(serverId, botClientId, request.nextUrl.origin)
   });
 }

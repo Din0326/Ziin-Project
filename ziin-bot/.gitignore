@@ -13,6 +13,9 @@ venv/
 logs/
 *.log
 data/local.db
+data/local.db-shm
+data/local.db-wal
+data/local.db*.bak
 
 # Environment
 .env

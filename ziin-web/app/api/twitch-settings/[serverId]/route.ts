@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { fetchDiscordGuilds, hasManagePermission } from "@/lib/discord-guilds";
 import { getTwitchSettings, upsertTwitchSettings } from "@/lib/local-db";
+import { getDiscordAccessToken } from "@/lib/server-auth";
 
 const canManageServer = async (accessToken: string, serverId: string) => {
   const result = await fetchDiscordGuilds(accessToken);
@@ -18,9 +17,8 @@ const canManageServer = async (accessToken: string, serverId: string) => {
   return hasManagePermission(guild.permissions);
 };
 
-const getAuthorizedSession = async (serverId: string) => {
-  const session = await getServerSession(authOptions);
-  const accessToken = session?.accessToken;
+const getAuthorizedSession = async (request: NextRequest, serverId: string) => {
+  const accessToken = await getDiscordAccessToken(request);
   if (!accessToken) {
     return { ok: false as const, response: NextResponse.json({ message: "Unauthorized" }, { status: 401 }) };
   }
@@ -33,9 +31,9 @@ const getAuthorizedSession = async (serverId: string) => {
   return { ok: true as const };
 };
 
-export async function GET(_: NextRequest, context: { params: Promise<{ serverId: string }> }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ serverId: string }> }) {
   const { serverId } = await context.params;
-  const auth = await getAuthorizedSession(serverId);
+  const auth = await getAuthorizedSession(request, serverId);
   if (!auth.ok) {
     return auth.response;
   }
@@ -54,7 +52,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ serverId:
 
 export async function PUT(request: NextRequest, context: { params: Promise<{ serverId: string }> }) {
   const { serverId } = await context.params;
-  const auth = await getAuthorizedSession(serverId);
+  const auth = await getAuthorizedSession(request, serverId);
   if (!auth.ok) {
     return auth.response;
   }

@@ -1,6 +1,10 @@
 /data/local.db
 /data/local.db-shm
 /data/local.db-wal
+/ziin-bot/data/local.db
+/ziin-bot/data/local.db-shm
+/ziin-bot/data/local.db-wal
+/ziin-bot/data/local.db*.bak
 
 # Secrets / local runtime config
 .env

@@ -98,6 +98,33 @@ type YouTubeSettingsSnapshot = {
   subscriptionIds: string[];
 };
 
+type BootstrapPayload = {
+  bootstrap?: {
+    serverSettings?: {
+      prefix?: unknown;
+      timezone?: unknown;
+      language?: unknown;
+      guildLogId?: unknown;
+      memberLogId?: unknown;
+      messageLogId?: unknown;
+      voiceLogId?: unknown;
+    } | null;
+    logSettings?: Record<string, unknown> | null;
+    twitchSettings?: {
+      twitchNotificationChannel?: unknown;
+      twitchNotificationText?: unknown;
+      allStreamers?: unknown;
+    } | null;
+    youtubeSettings?: {
+      youtubeNotificationChannel?: unknown;
+      youtubeNotificationText?: unknown;
+      youtubers?: unknown;
+    } | null;
+    channels?: Array<{ id: string; name: string }> | null;
+    roles?: Array<{ id: string; name: string; managed?: boolean }> | null;
+  } | null;
+};
+
 export default function Page() {
   const LOG_CHANNEL_TARGETS = [
     { key: "memberLogId", label: "成員事件頻道" },
@@ -1019,6 +1046,9 @@ export default function Page() {
       setBotInviteServerName("");
       setChannelQueries({});
       setShowChannelSuggestions({});
+      setServerChannels([]);
+      setServerRoles([]);
+      setLogSettings(DEFAULT_LOG_SETTINGS);
       setLogChannelTargets({
         memberLogId: "",
         guildLogId: "",
@@ -1038,60 +1068,38 @@ export default function Page() {
 
     let active = true;
 
-    const loadServerSettings = async () => {
-      const response = await fetch(`/api/server-settings/${selectedServerId}`, {
+    const loadBootstrap = async () => {
+      const response = await fetch(`/api/server-settings/${selectedServerId}/bootstrap`, {
         method: "GET"
       });
       if (!active || !response.ok) {
-        setPrefixInput("");
-        setSelectedTimezone(undefined);
-        setTimezoneQuery("");
-        setSelectedLanguage(undefined);
-        setLogChannelTargets({
-          memberLogId: "",
-          guildLogId: "",
-          messageLogId: "",
-          voiceLogId: ""
-        });
+        setServerChannels([]);
+        setServerRoles([]);
         return;
       }
 
-      const result = (await response.json()) as {
-        settings: {
-          prefix?: unknown;
-          timezone?: unknown;
-          language?: unknown;
-          guildLogId?: unknown;
-          memberLogId?: unknown;
-          messageLogId?: unknown;
-          voiceLogId?: unknown;
-        } | null;
-      };
-      const data = result.settings;
-      if (!data) {
-        setPrefixInput("");
-        setSelectedTimezone(undefined);
-        setTimezoneQuery("");
-        setSelectedLanguage(undefined);
-        setLogChannelTargets({
-          memberLogId: "",
-          guildLogId: "",
-          messageLogId: "",
-          voiceLogId: ""
-        });
+      const result = (await response.json()) as BootstrapPayload;
+      const bootstrap = result.bootstrap;
+      if (!bootstrap) {
+        setServerChannels([]);
+        setServerRoles([]);
         return;
       }
 
-      setPrefixInput(typeof data.prefix === "string" ? data.prefix : "");
+      const serverData = bootstrap.serverSettings;
+      const logData = bootstrap.logSettings;
+      const twitchData = bootstrap.twitchSettings;
+      const youtubeData = bootstrap.youtubeSettings;
+
+      const prefix = typeof serverData?.prefix === "string" ? serverData.prefix : "";
       let normalizedTimezoneValue: string | undefined;
-
-      if (typeof data.timezone === "string") {
+      if (typeof serverData?.timezone === "string") {
         const timezoneIdFromValue =
-          data.timezone
+          serverData.timezone
             .split(/\s+/)
             .find((part) => part.includes("/") && part.length > 3) ?? null;
         const matchedTimezone = timezoneOptions.find((timezone) => {
-          if (timezone.value === data.timezone || timezone.label === data.timezone) {
+          if (timezone.value === serverData.timezone || timezone.label === serverData.timezone) {
             return true;
           }
           if (timezoneIdFromValue && timezone.value === timezoneIdFromValue) {
@@ -1101,128 +1109,133 @@ export default function Page() {
         });
         normalizedTimezoneValue = matchedTimezone?.value;
         setSelectedTimezone(matchedTimezone?.value);
-        setTimezoneQuery(matchedTimezone?.label ?? data.timezone);
+        setTimezoneQuery(matchedTimezone?.label ?? serverData.timezone);
       } else {
         setSelectedTimezone(undefined);
         setTimezoneQuery("");
       }
 
       let normalizedLanguage: string | undefined;
-      if (typeof data.language === "string") {
-        if (data.language === "zh-TW") {
+      if (typeof serverData?.language === "string") {
+        if (serverData.language === "zh-TW") {
           normalizedLanguage = "zh-TW";
-        } else if (data.language === "en") {
+        } else if (serverData.language === "en") {
           normalizedLanguage = "English";
-        } else if (data.language === "繁體中文") {
+        } else if (serverData.language === "繁體中文") {
           normalizedLanguage = "zh-TW";
         } else {
-          normalizedLanguage = data.language;
+          normalizedLanguage = serverData.language;
         }
-        setSelectedLanguage(normalizedLanguage);
-      } else {
-        setSelectedLanguage(undefined);
       }
 
-      setLogChannelTargets({
-        guildLogId: typeof data.guildLogId === "string" ? data.guildLogId : "",
-        memberLogId: typeof data.memberLogId === "string" ? data.memberLogId : "",
-        messageLogId: typeof data.messageLogId === "string" ? data.messageLogId : "",
-        voiceLogId: typeof data.voiceLogId === "string" ? data.voiceLogId : ""
-      });
+      const nextLogChannels = {
+        guildLogId: typeof serverData?.guildLogId === "string" ? serverData.guildLogId : "",
+        memberLogId: typeof serverData?.memberLogId === "string" ? serverData.memberLogId : "",
+        messageLogId: typeof serverData?.messageLogId === "string" ? serverData.messageLogId : "",
+        voiceLogId: typeof serverData?.voiceLogId === "string" ? serverData.voiceLogId : ""
+      };
+
+      const nextLogSettings: Record<string, boolean> = { ...DEFAULT_LOG_SETTINGS };
+      if (logData) {
+        for (const key of Object.keys(DEFAULT_LOG_SETTINGS)) {
+          if (typeof logData[key] === "boolean") {
+            nextLogSettings[key] = logData[key] as boolean;
+          }
+        }
+      }
+
+      const nextTwitchChannel =
+        typeof twitchData?.twitchNotificationChannel === "string" ? twitchData.twitchNotificationChannel : "";
+      const nextTwitchText =
+        typeof twitchData?.twitchNotificationText === "string"
+          ? twitchData.twitchNotificationText
+          : DEFAULT_TWITCH_NOTIFICATION_TEXT;
+      const nextTwitchStreamers = Array.isArray(twitchData?.allStreamers)
+        ? twitchData.allStreamers.filter((item): item is string => typeof item === "string")
+        : [];
+
+      const nextYouTubeChannel =
+        typeof youtubeData?.youtubeNotificationChannel === "string" ? youtubeData.youtubeNotificationChannel : "";
+      const nextYouTubeText =
+        typeof youtubeData?.youtubeNotificationText === "string"
+          ? youtubeData.youtubeNotificationText
+          : DEFAULT_YOUTUBE_NOTIFICATION_TEXT;
+      const nextYouTubeSubs = Array.isArray(youtubeData?.youtubers)
+        ? youtubeData.youtubers
+            .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+            .map((item) => ({
+              id: typeof item.id === "string" ? item.id : "",
+              name: typeof item.name === "string" ? item.name : typeof item.id === "string" ? item.id : "",
+              videoId: typeof item.videoId === "string" ? item.videoId : "",
+              streamId: typeof item.streamId === "string" ? item.streamId : "",
+              shortId: typeof item.shortId === "string" ? item.shortId : "",
+              videoHistory: Array.isArray(item.videoHistory)
+                ? item.videoHistory.filter((value): value is string => typeof value === "string")
+                : [],
+              streamHistory: Array.isArray(item.streamHistory)
+                ? item.streamHistory.filter((value): value is string => typeof value === "string")
+                : [],
+              shortHistory: Array.isArray(item.shortHistory)
+                ? item.shortHistory.filter((value): value is string => typeof value === "string")
+                : []
+            }))
+            .filter((item) => item.id)
+        : [];
+
+      const nextChannels = Array.isArray(bootstrap.channels)
+        ? bootstrap.channels
+            .filter((channel): channel is { id: string; name: string } => {
+              return typeof channel.id === "string" && typeof channel.name === "string";
+            })
+        : [];
+      const nextRoles = Array.isArray(bootstrap.roles)
+        ? bootstrap.roles
+            .filter((role): role is { id: string; name: string; managed: boolean } => {
+              return (
+                typeof role.id === "string" &&
+                typeof role.name === "string" &&
+                typeof role.managed === "boolean"
+              );
+            })
+        : [];
+
+      setPrefixInput(prefix);
+      setSelectedLanguage(normalizedLanguage);
       setSavedServerSettings({
-        prefix: typeof data.prefix === "string" ? data.prefix : "",
+        prefix,
         timezone: normalizedTimezoneValue,
         language: normalizedLanguage
       });
-      setSavedLogChannelTargets({
-        guildLogId: typeof data.guildLogId === "string" ? data.guildLogId : "",
-        memberLogId: typeof data.memberLogId === "string" ? data.memberLogId : "",
-        messageLogId: typeof data.messageLogId === "string" ? data.messageLogId : "",
-        voiceLogId: typeof data.voiceLogId === "string" ? data.voiceLogId : ""
+      setLogChannelTargets(nextLogChannels);
+      setSavedLogChannelTargets(nextLogChannels);
+      setLogSettings(nextLogSettings);
+      setSavedLogSettings(nextLogSettings);
+      setTwitchNotificationChannel(nextTwitchChannel);
+      setTwitchNotificationText(nextTwitchText);
+      setTwitchStreamers(nextTwitchStreamers);
+      setSavedTwitchSettings({
+        channel: nextTwitchChannel,
+        text: nextTwitchText,
+        streamers: [...nextTwitchStreamers]
       });
+      setYouTubeNotificationChannel(nextYouTubeChannel);
+      setYouTubeNotificationText(nextYouTubeText);
+      setYouTubeSubscriptions(nextYouTubeSubs);
+      setSavedYouTubeSettings({
+        channel: nextYouTubeChannel,
+        text: nextYouTubeText,
+        subscriptionIds: nextYouTubeSubs.map((item) => item.id).sort()
+      });
+      setServerChannels(nextChannels);
+      setServerRoles(nextRoles);
     };
 
-    void loadServerSettings();
+    void loadBootstrap();
 
     return () => {
       active = false;
     };
   }, [selectedServerId, timezoneOptions]);
-
-  React.useEffect(() => {
-    if (!selectedServerId) {
-      setServerChannels([]);
-      return;
-    }
-
-    let active = true;
-
-    const loadChannels = async () => {
-      const response = await fetch(`/api/discord/guild-channels/${selectedServerId}`, {
-        method: "GET"
-      });
-
-      if (!active || !response.ok) {
-        setServerChannels([]);
-        return;
-      }
-
-      const result = (await response.json()) as {
-        channels?: Array<{ id: string; name: string }> | null;
-      };
-
-      setServerChannels(Array.isArray(result.channels) ? result.channels : []);
-    };
-
-    void loadChannels();
-
-    return () => {
-      active = false;
-    };
-  }, [selectedServerId]);
-
-  React.useEffect(() => {
-    if (!selectedServerId) {
-      setServerRoles([]);
-      return;
-    }
-
-    let active = true;
-
-    const loadRoles = async () => {
-      const response = await fetch(`/api/discord/guild-roles/${selectedServerId}`, {
-        method: "GET"
-      });
-
-      if (!active || !response.ok) {
-        setServerRoles([]);
-        return;
-      }
-
-      const result = (await response.json()) as {
-        roles?: Array<{ id: string; name: string; managed?: boolean }> | null;
-      };
-
-      setServerRoles(
-        Array.isArray(result.roles)
-          ? result.roles
-              .filter((role): role is { id: string; name: string; managed: boolean } => {
-                return (
-                  typeof role.id === "string" &&
-                  typeof role.name === "string" &&
-                  typeof role.managed === "boolean"
-                );
-              })
-          : []
-      );
-    };
-
-    void loadRoles();
-
-    return () => {
-      active = false;
-    };
-  }, [selectedServerId]);
 
   React.useEffect(() => {
     const resolveAvatar = async (platform: "twitch" | "youtube", id: string) => {
@@ -1276,183 +1289,6 @@ export default function Page() {
       void resolveAvatar("youtube", subscription.id);
     });
   }, [avatarFallbacks, resolvedAvatars, twitchStreamers, youtubeSubscriptions]);
-
-  React.useEffect(() => {
-    if (!selectedServerId) {
-      setLogSettings(DEFAULT_LOG_SETTINGS);
-      return;
-    }
-
-    let active = true;
-
-    const loadLogSettings = async () => {
-      const response = await fetch(`/api/log-settings/${selectedServerId}`, {
-        method: "GET"
-      });
-      if (!active || !response.ok) {
-        setLogSettings(DEFAULT_LOG_SETTINGS);
-        return;
-      }
-
-      const result = (await response.json()) as { settings?: Record<string, unknown> | null };
-      const data = result.settings;
-      if (!data) {
-        setLogSettings(DEFAULT_LOG_SETTINGS);
-        return;
-      }
-
-      const nextSettings: Record<string, boolean> = { ...DEFAULT_LOG_SETTINGS };
-      for (const key of Object.keys(DEFAULT_LOG_SETTINGS)) {
-        if (typeof data[key] === "boolean") {
-          nextSettings[key] = data[key] as boolean;
-        }
-      }
-      setLogSettings(nextSettings);
-      setSavedLogSettings(nextSettings);
-    };
-
-    void loadLogSettings();
-
-    return () => {
-      active = false;
-    };
-  }, [selectedServerId]);
-
-  React.useEffect(() => {
-    if (!selectedServerId) {
-      setTwitchNotificationChannel("");
-      setTwitchNotificationText(DEFAULT_TWITCH_NOTIFICATION_TEXT);
-      setTwitchStreamers([]);
-      return;
-    }
-
-    let active = true;
-
-    const loadTwitchSettings = async () => {
-      const response = await fetch(`/api/twitch-settings/${selectedServerId}`, { method: "GET" });
-      if (!active || !response.ok) {
-        return;
-      }
-
-      const result = (await response.json()) as {
-        settings?: {
-          twitchNotificationChannel?: unknown;
-          twitchNotificationText?: unknown;
-          allStreamers?: unknown;
-        } | null;
-      };
-      const data = result.settings;
-      if (!data) {
-        return;
-      }
-
-      setTwitchNotificationChannel(typeof data.twitchNotificationChannel === "string" ? data.twitchNotificationChannel : "");
-      setTwitchNotificationText(
-        typeof data.twitchNotificationText === "string"
-          ? data.twitchNotificationText
-          : DEFAULT_TWITCH_NOTIFICATION_TEXT
-      );
-      setTwitchStreamers(
-        Array.isArray(data.allStreamers) ? data.allStreamers.filter((item): item is string => typeof item === "string") : []
-      );
-      setSavedTwitchSettings({
-        channel: typeof data.twitchNotificationChannel === "string" ? data.twitchNotificationChannel : "",
-        text:
-          typeof data.twitchNotificationText === "string"
-            ? data.twitchNotificationText
-            : DEFAULT_TWITCH_NOTIFICATION_TEXT,
-        streamers: Array.isArray(data.allStreamers)
-          ? data.allStreamers.filter((item): item is string => typeof item === "string")
-          : []
-      });
-    };
-
-    void loadTwitchSettings();
-
-    return () => {
-      active = false;
-    };
-  }, [selectedServerId]);
-
-  React.useEffect(() => {
-    if (!selectedServerId) {
-      setYouTubeNotificationChannel("");
-      setYouTubeNotificationText(DEFAULT_YOUTUBE_NOTIFICATION_TEXT);
-      setYouTubeSubscriptions([]);
-      return;
-    }
-
-    let active = true;
-
-    const loadYouTubeSettings = async () => {
-      const response = await fetch(`/api/youtube-settings/${selectedServerId}`, { method: "GET" });
-      if (!active || !response.ok) {
-        return;
-      }
-
-      const result = (await response.json()) as {
-        settings?: {
-          youtubeNotificationChannel?: unknown;
-          youtubeNotificationText?: unknown;
-          youtubers?: unknown;
-        } | null;
-      };
-      const data = result.settings;
-      if (!data) {
-        return;
-      }
-
-      setYouTubeNotificationChannel(typeof data.youtubeNotificationChannel === "string" ? data.youtubeNotificationChannel : "");
-      setYouTubeNotificationText(
-        typeof data.youtubeNotificationText === "string"
-          ? data.youtubeNotificationText
-          : DEFAULT_YOUTUBE_NOTIFICATION_TEXT
-      );
-      setYouTubeSubscriptions(
-        Array.isArray(data.youtubers)
-          ? data.youtubers
-              .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
-              .map((item) => ({
-                id: typeof item.id === "string" ? item.id : "",
-                name: typeof item.name === "string" ? item.name : typeof item.id === "string" ? item.id : "",
-                videoId: typeof item.videoId === "string" ? item.videoId : "",
-                streamId: typeof item.streamId === "string" ? item.streamId : "",
-                shortId: typeof item.shortId === "string" ? item.shortId : "",
-                videoHistory: Array.isArray(item.videoHistory)
-                  ? item.videoHistory.filter((value): value is string => typeof value === "string")
-                  : [],
-                streamHistory: Array.isArray(item.streamHistory)
-                  ? item.streamHistory.filter((value): value is string => typeof value === "string")
-                  : [],
-                shortHistory: Array.isArray(item.shortHistory)
-                  ? item.shortHistory.filter((value): value is string => typeof value === "string")
-                  : []
-              }))
-              .filter((item) => item.id)
-          : []
-      );
-      setSavedYouTubeSettings({
-        channel: typeof data.youtubeNotificationChannel === "string" ? data.youtubeNotificationChannel : "",
-        text:
-          typeof data.youtubeNotificationText === "string"
-            ? data.youtubeNotificationText
-            : DEFAULT_YOUTUBE_NOTIFICATION_TEXT,
-        subscriptionIds: Array.isArray(data.youtubers)
-          ? data.youtubers
-              .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
-              .map((item) => (typeof item.id === "string" ? item.id : ""))
-              .filter((id) => id.length > 0)
-              .sort()
-          : []
-      });
-    };
-
-    void loadYouTubeSettings();
-
-    return () => {
-      active = false;
-    };
-  }, [selectedServerId]);
 
   return (
     <SidebarProvider

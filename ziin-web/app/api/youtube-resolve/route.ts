@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const CHANNEL_ID_PATTERN = /^UC[\w-]{22}$/;
+const ALLOWED_YOUTUBE_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"]);
 
 const extractChannelIdFromHtml = (html: string): string | null => {
   const patterns = [
@@ -67,7 +68,9 @@ export async function POST(request: NextRequest) {
   }
 
   const host = url.hostname.toLowerCase();
-  if (!host.includes("youtube.com") && !host.includes("youtu.be")) {
+  const isAllowedHost =
+    ALLOWED_YOUTUBE_HOSTS.has(host) || host.endsWith(".youtube.com") || host.endsWith(".youtu.be");
+  if (!isAllowedHost) {
     return NextResponse.json({ message: "URL must be from YouTube" }, { status: 400 });
   }
 
