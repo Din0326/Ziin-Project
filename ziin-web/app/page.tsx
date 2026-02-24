@@ -45,6 +45,30 @@ const UNAVAILABLE_LOG_SETTING_KEYS = new Set(["messageDeleteBulk"]);
 const DEFAULT_TWITCH_NOTIFICATION_TEXT = "**{streamer}** is live now!!\n**{url}**";
 const DEFAULT_YOUTUBE_NOTIFICATION_TEXT = "**{ytber}** upload a video!!\n**{url}**";
 
+const escapeHtml = (value: string) =>
+  value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+
+const renderPreviewMarkdown = (value: string) => {
+  const lines = value.split("\n").map((line) => {
+    let html = escapeHtml(line);
+    html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+    html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+    html = html.replace(/~~([^~]+)~~/g, "<del>$1</del>");
+    html = html.replace(
+      /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noreferrer noopener">$1</a>'
+    );
+    return html;
+  });
+  return lines.join("<br />");
+};
+
 type YouTubeSubscription = {
   id: string;
   name: string;
@@ -100,6 +124,7 @@ export default function Page() {
   const [logSettings, setLogSettings] = React.useState<Record<string, boolean>>(DEFAULT_LOG_SETTINGS);
   const [isSavingLogConfig, setIsSavingLogConfig] = React.useState(false);
   const [serverChannels, setServerChannels] = React.useState<Array<{ id: string; name: string }>>([]);
+  const [serverRoles, setServerRoles] = React.useState<Array<{ id: string; name: string; managed: boolean }>>([]);
   const [logChannelTargets, setLogChannelTargets] = React.useState<{
     memberLogId: string;
     guildLogId: string;
@@ -135,6 +160,8 @@ export default function Page() {
   const [isSavingTwitchSettings, setIsSavingTwitchSettings] = React.useState(false);
   const [youtubeNotificationChannel, setYouTubeNotificationChannel] = React.useState("");
   const [youtubeNotificationText, setYouTubeNotificationText] = React.useState(DEFAULT_YOUTUBE_NOTIFICATION_TEXT);
+  const twitchTemplateRef = React.useRef<HTMLTextAreaElement | null>(null);
+  const youtubeTemplateRef = React.useRef<HTMLTextAreaElement | null>(null);
   const [youtubeSubscriptions, setYouTubeSubscriptions] = React.useState<YouTubeSubscription[]>([]);
   const [newYouTubeChannelInput, setNewYouTubeChannelInput] = React.useState("");
   const [isResolvingYouTubeChannel, setIsResolvingYouTubeChannel] = React.useState(false);
@@ -299,6 +326,40 @@ export default function Page() {
     },
     []
   );
+  const insertRoleMention = React.useCallback((value: string, setText: React.Dispatch<React.SetStateAction<string>>) => {
+    if (!value) {
+      return;
+    }
+    const mention = `<@&${value}>`;
+    setText((current) => `${current}${current ? " " : ""}${mention}`);
+  }, []);
+  const resizeTemplateTextarea = React.useCallback((target: HTMLTextAreaElement) => {
+    target.style.height = "auto";
+    target.style.height = `${target.scrollHeight}px`;
+  }, []);
+  const autoResizeTemplateInput = React.useCallback((event: React.FormEvent<HTMLTextAreaElement>) => {
+    const target = event.currentTarget;
+    resizeTemplateTextarea(target);
+  }, [resizeTemplateTextarea]);
+
+  React.useEffect(() => {
+    if (twitchTemplateRef.current) {
+      resizeTemplateTextarea(twitchTemplateRef.current);
+    }
+    if (youtubeTemplateRef.current) {
+      resizeTemplateTextarea(youtubeTemplateRef.current);
+    }
+  }, []);
+  React.useEffect(() => {
+    if (twitchTemplateRef.current) {
+      resizeTemplateTextarea(twitchTemplateRef.current);
+    }
+  }, [resizeTemplateTextarea, twitchNotificationText]);
+  React.useEffect(() => {
+    if (youtubeTemplateRef.current) {
+      resizeTemplateTextarea(youtubeTemplateRef.current);
+    }
+  }, [resizeTemplateTextarea, youtubeNotificationText]);
   const isChannelPickerValid = React.useCallback(
     (pickerKey: string, selectedChannelId?: string) => {
       const hasQuery = Object.prototype.hasOwnProperty.call(channelQueries, pickerKey);
@@ -744,6 +805,30 @@ export default function Page() {
     () => isChannelPickerValid("youtube:notification", youtubeNotificationChannel),
     [isChannelPickerValid, youtubeNotificationChannel]
   );
+  const twitchTemplatePreview = React.useMemo(
+    () =>
+      twitchNotificationText
+        .replaceAll("{streamer}", "Din4ni")
+        .replaceAll("{url}", "https://twitch.tv/din4ni")
+        .replaceAll("\\n", "\n"),
+    [twitchNotificationText]
+  );
+  const youtubeTemplatePreview = React.useMemo(
+    () =>
+      youtubeNotificationText
+        .replaceAll("{ytber}", "Din Channel")
+        .replaceAll("{url}", "https://youtu.be/dQw4w9WgXcQ")
+        .replaceAll("\\n", "\n"),
+    [youtubeNotificationText]
+  );
+  const twitchTemplatePreviewHtml = React.useMemo(
+    () => renderPreviewMarkdown(twitchTemplatePreview),
+    [twitchTemplatePreview]
+  );
+  const youtubeTemplatePreviewHtml = React.useMemo(
+    () => renderPreviewMarkdown(youtubeTemplatePreview),
+    [youtubeTemplatePreview]
+  );
 
   const hasUnsavedChangesOnCurrentPage = React.useMemo(() => {
     if (activeNavMain === "伺服器設定") {
@@ -1090,6 +1175,49 @@ export default function Page() {
     };
 
     void loadChannels();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedServerId]);
+
+  React.useEffect(() => {
+    if (!selectedServerId) {
+      setServerRoles([]);
+      return;
+    }
+
+    let active = true;
+
+    const loadRoles = async () => {
+      const response = await fetch(`/api/discord/guild-roles/${selectedServerId}`, {
+        method: "GET"
+      });
+
+      if (!active || !response.ok) {
+        setServerRoles([]);
+        return;
+      }
+
+      const result = (await response.json()) as {
+        roles?: Array<{ id: string; name: string; managed?: boolean }> | null;
+      };
+
+      setServerRoles(
+        Array.isArray(result.roles)
+          ? result.roles
+              .filter((role): role is { id: string; name: string; managed: boolean } => {
+                return (
+                  typeof role.id === "string" &&
+                  typeof role.name === "string" &&
+                  typeof role.managed === "boolean"
+                );
+              })
+          : []
+      );
+    };
+
+    void loadRoles();
 
     return () => {
       active = false;
@@ -1759,15 +1887,39 @@ export default function Page() {
                         </div>
                         <div className="space-y-2">
                           <p className="text-muted-foreground text-sm">通知訊息模板</p>
-                          <Input
-                            className="!h-11 rounded-lg bg-background/40 text-sm"
+                          <textarea
+                            ref={twitchTemplateRef}
+                            className="focus-visible:border-ring focus-visible:ring-ring/50 min-h-11 w-full resize-none overflow-hidden rounded-lg border bg-background/40 px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
                             value={twitchNotificationText}
                             onChange={(event) => setTwitchNotificationText(event.target.value)}
+                            onInput={autoResizeTemplateInput}
                             placeholder="例如：**{streamer}** is live now!! **{url}**"
+                            rows={2}
                           />
                           <p className="text-muted-foreground text-xs">
                             {"{streamer}"} 會自動替換實況主名稱，{"{url}"} 會自動替換實況連結。
                           </p>
+                          <Select onValueChange={(value) => insertRoleMention(value, setTwitchNotificationText)}>
+                            <SelectTrigger className="!h-10 !w-full rounded-lg bg-background/40 text-sm">
+                              <SelectValue placeholder="插入身分組提及（@Role）" />
+                            </SelectTrigger>
+                            <SelectContent position="popper" side="bottom" align="start" sideOffset={6}>
+                              {serverRoles.map((role) => (
+                                <SelectItem key={role.id} value={role.id}>
+                                  @{role.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="rounded-lg border bg-background/30 p-3">
+                            <p className="text-muted-foreground text-xs">Discord 預覽</p>
+                            <div className="mt-2 rounded-md border bg-card/60 p-3">
+                              <div
+                                className="break-all text-sm [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5"
+                                dangerouslySetInnerHTML={{ __html: twitchTemplatePreviewHtml }}
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1905,15 +2057,39 @@ export default function Page() {
                         </div>
                         <div className="space-y-2">
                           <p className="text-muted-foreground text-sm">通知訊息模板</p>
-                          <Input
-                            className="!h-11 rounded-lg bg-background/40 text-sm"
+                          <textarea
+                            ref={youtubeTemplateRef}
+                            className="focus-visible:border-ring focus-visible:ring-ring/50 min-h-11 w-full resize-none overflow-hidden rounded-lg border bg-background/40 px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
                             value={youtubeNotificationText}
                             onChange={(event) => setYouTubeNotificationText(event.target.value)}
+                            onInput={autoResizeTemplateInput}
                             placeholder="例如：**{ytber}** upload a video!! **{url}**"
+                            rows={2}
                           />
                           <p className="text-muted-foreground text-xs">
                             {"{ytber}"} 會自動替換 YouTuber 名稱，{"{url}"} 會自動替換影片連結。
                           </p>
+                          <Select onValueChange={(value) => insertRoleMention(value, setYouTubeNotificationText)}>
+                            <SelectTrigger className="!h-10 !w-full rounded-lg bg-background/40 text-sm">
+                              <SelectValue placeholder="插入身分組提及（@Role）" />
+                            </SelectTrigger>
+                            <SelectContent position="popper" side="bottom" align="start" sideOffset={6}>
+                              {serverRoles.map((role) => (
+                                <SelectItem key={role.id} value={role.id}>
+                                  @{role.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="rounded-lg border bg-background/30 p-3">
+                            <p className="text-muted-foreground text-xs">Discord 預覽</p>
+                            <div className="mt-2 rounded-md border bg-card/60 p-3">
+                              <div
+                                className="break-all text-sm [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5"
+                                dangerouslySetInnerHTML={{ __html: youtubeTemplatePreviewHtml }}
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
