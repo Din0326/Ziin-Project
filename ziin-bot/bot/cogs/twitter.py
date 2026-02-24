@@ -5,22 +5,18 @@ import os
 import re
 import traceback
 import typing
-from pathlib import Path
 
 import discord
 import requests
 from bot.core.classed import Cog_Extension
-from bot.services.channel_data import get_twitter_data, save_twitter_data, ensure_twitter_data
+from bot.services.channel_data import ensure_twitter_data, get_twitter_data, save_twitter_data
 from discord.ext import commands, tasks
 from discord.ext.commands import has_permissions
-from twikit import Client
 
 logger = logging.getLogger("__main__")
 _DEBUG_TWITTER = os.getenv("DEBUG_TWITTER", "0") == "1"
-_TWITTER_AUTH_INFO_1 = os.getenv("TWITTER_AUTH_INFO_1", "").strip()
-_TWITTER_AUTH_INFO_2 = os.getenv("TWITTER_AUTH_INFO_2", "").strip()
-_TWITTER_PASSWORD = os.getenv("TWITTER_PASSWORD", "").strip()
-_TWITTER_COOKIES_PATH = os.getenv("TWITTER_COOKIES_PATH", "").strip()
+_TWITTERAPI_IO_BASE = (os.getenv("TWITTERAPI_IO_BASE", "https://api.twitterapi.io") or "https://api.twitterapi.io").rstrip("/")
+_TWITTERAPI_IO_KEY = (os.getenv("TWITTERAPI_IO_KEY", "") or "").strip()
 
 
 def _debug_twitter(message: str) -> None:
@@ -49,174 +45,90 @@ def _append_unique_id(bucket: list[str], value: str) -> bool:
     return True
 
 
-def _resolve_user_meta_from_syndication(handle: str) -> tuple[str, str, str] | None:
-    url = f"https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names={handle}"
-    response = requests.get(
-        url,
-        timeout=20,
-        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
-    )
+def _get_nested(data: object, *path: str) -> object:
+    current = data
+    for key in path:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    return current
+
+
+def _extract_tweets(payload: object) -> list[dict[str, object]]:
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if not isinstance(payload, dict):
+        return []
+
+    candidates = [
+        payload.get("tweets"),
+        payload.get("data"),
+        _get_nested(payload, "result", "tweets"),
+        payload.get("result"),
+    ]
+    for candidate in candidates:
+        if isinstance(candidate, list):
+            return [item for item in candidate if isinstance(item, dict)]
+    return []
+
+
+def _resolve_latest_tweet(handle: str) -> tuple[str, str, str] | None:
+    if not _TWITTERAPI_IO_KEY:
+        raise RuntimeError("TWITTERAPI_IO_KEY is missing")
+
+    url = f"{_TWITTERAPI_IO_BASE}/twitter/user/last_tweets"
+    headers = {"x-api-key": _TWITTERAPI_IO_KEY}
+    params = {"userName": handle, "includeReplies": "false"}
+
+    _debug_twitter(f"twitterapi request start handle={handle}")
+    response = requests.get(url, headers=headers, params=params, timeout=30)
     response.raise_for_status()
-    rows = response.json()
-    if not isinstance(rows, list) or not rows:
+
+    payload = response.json()
+    tweets = _extract_tweets(payload)
+    if not tweets:
+        _debug_twitter(f"twitterapi empty tweets handle={handle}")
         return None
 
-    first = rows[0] if isinstance(rows[0], dict) else None
-    if not first:
+    first = tweets[0]
+    tweet_id_raw = first.get("id") or first.get("tweetId") or first.get("rest_id")
+    tweet_id = str(tweet_id_raw).strip() if tweet_id_raw is not None else ""
+
+    author = first.get("author") if isinstance(first.get("author"), dict) else {}
+    screen_name_raw = (
+        author.get("userName")
+        or author.get("username")
+        or first.get("userName")
+        or first.get("screenName")
+        or handle
+    )
+    screen_name = str(screen_name_raw).strip() or handle
+
+    display_name_raw = author.get("name") or author.get("displayName") or first.get("name") or screen_name
+    display_name = str(display_name_raw).strip() or screen_name
+
+    tweet_url_raw = first.get("url") or first.get("tweetUrl") or first.get("permanentUrl")
+    tweet_url = str(tweet_url_raw).strip() if tweet_url_raw is not None else ""
+
+    if not tweet_id and tweet_url:
+        match = re.search(r"/status/(\d+)", tweet_url)
+        if match:
+            tweet_id = match.group(1)
+
+    if not tweet_id:
+        _debug_twitter(f"twitterapi missing tweet id handle={handle}")
         return None
 
-    raw_id = first.get("id")
-    user_id = str(raw_id).strip() if raw_id is not None else ""
-    if not user_id:
-        return None
-    screen_name = str(first.get("screen_name") or handle).strip() or handle
-    display_name = str(first.get("name") or screen_name).strip() or screen_name
-    return user_id, screen_name, display_name
+    if not tweet_url:
+        tweet_url = f"https://x.com/{screen_name}/status/{tweet_id}"
+
+    _debug_twitter(
+        f"twitterapi resolve ok handle={handle} tweet_id={tweet_id} screen_name={screen_name} display_name={display_name}"
+    )
+    return tweet_id, tweet_url, display_name
 
 
 class Twitter(Cog_Extension):
-    def __init__(self, bot: commands.Bot):
-        super().__init__(bot)
-        self._client: Client | None = None
-        self._client_ready = False
-        if _TWITTER_COOKIES_PATH:
-            self._cookie_paths = [Path(_TWITTER_COOKIES_PATH)]
-        else:
-            self._cookie_paths = [
-                Path("/app/cookies.json"),
-                Path("/shared-data/twitter_cookies.json"),
-                Path("/shared-data/cookies.json"),
-            ]
-
-    async def _activate_logged_client(self, client: Client) -> None:
-        if not _TWITTER_AUTH_INFO_1 or not _TWITTER_PASSWORD:
-            raise RuntimeError("TWITTER_AUTH_INFO_1 or TWITTER_PASSWORD is missing")
-
-        for cookie_path in self._cookie_paths:
-            if not cookie_path.exists():
-                _debug_twitter(f"load cookies skip path={cookie_path} reason=not_found")
-                continue
-            try:
-                _debug_twitter(f"load cookies start path={cookie_path}")
-                client.load_cookies(str(cookie_path))
-                _debug_twitter(f"load cookies ok path={cookie_path}")
-            except Exception as exc:
-                _debug_twitter(f"load cookies failed path={cookie_path} error={exc!r}")
-                continue
-
-            try:
-                _debug_twitter(f"validate cookies start path={cookie_path}")
-                await client.search_tweet("from:Twitter", "Latest", count=1)
-                _debug_twitter(f"validate cookies ok path={cookie_path}")
-                return
-            except Exception as exc:
-                _debug_twitter(f"validate cookies failed path={cookie_path} error={exc!r}; relogin")
-
-        if not _TWITTER_AUTH_INFO_1 or not _TWITTER_PASSWORD:
-            raise RuntimeError("twitter cookies are missing/invalid and login credentials are not configured")
-
-        login_kwargs: dict[str, str] = {
-            "auth_info_1": _TWITTER_AUTH_INFO_1,
-            "password": _TWITTER_PASSWORD,
-        }
-        if _TWITTER_AUTH_INFO_2:
-            login_kwargs["auth_info_2"] = _TWITTER_AUTH_INFO_2
-
-        _debug_twitter("login start")
-        await client.login(**login_kwargs)
-        _debug_twitter("login ok")
-
-        try:
-            save_path = self._cookie_paths[0]
-            save_path.parent.mkdir(parents=True, exist_ok=True)
-            client.save_cookies(str(save_path))
-            _debug_twitter(f"save cookies ok path={save_path}")
-        except Exception as exc:
-            _debug_twitter(f"save cookies failed error={exc!r}")
-
-    async def _get_client(self) -> Client:
-        if self._client is None:
-            _debug_twitter("client create")
-            self._client = Client("en-US")
-        if not self._client_ready:
-            _debug_twitter("client ready check start")
-            await self._activate_logged_client(self._client)
-            self._client_ready = True
-            _debug_twitter("client ready check ok")
-        return self._client
-
-    async def _resolve_latest_tweet(self, handle: str) -> tuple[str, str, str] | None:
-        client = await self._get_client()
-        user_id = ""
-        screen_name = handle
-        display_name = handle
-
-        try:
-            _debug_twitter(f"resolve user by screen_name start handle={handle}")
-            user = await client.get_user_by_screen_name(handle)
-            user_id = str(user.id)
-            screen_name = getattr(user, "screen_name", handle) or handle
-            display_name = getattr(user, "name", handle) or handle
-            _debug_twitter(
-                f"resolve user by screen_name ok handle={handle} user_id={user_id} "
-                f"screen_name={screen_name} display_name={display_name}"
-            )
-        except Exception as exc:
-            _debug_twitter(f"resolve user by screen_name failed handle={handle} error={exc!r}")
-            fallback = _resolve_user_meta_from_syndication(handle)
-            if not fallback:
-                _debug_twitter(f"syndication fallback empty handle={handle}; trying search_tweet")
-                search_tweets = await client.search_tweet(f"from:{handle}", "Latest", count=1)
-                if not search_tweets:
-                    _debug_twitter(f"search_tweet fallback empty handle={handle}")
-                    return None
-                tweet = search_tweets[0]
-                tweet_id = str(tweet.id)
-                user = getattr(tweet, "user", None)
-                screen_name = getattr(user, "screen_name", handle) or handle
-                display_name = getattr(user, "name", screen_name) or screen_name
-                tweet_url = f"https://x.com/{screen_name}/status/{tweet_id}"
-                _debug_twitter(
-                    f"search_tweet fallback ok handle={handle} tweet_id={tweet_id} "
-                    f"screen_name={screen_name} display_name={display_name}"
-                )
-                return tweet_id, tweet_url, display_name
-            user_id, screen_name, display_name = fallback
-            _debug_twitter(
-                f"syndication fallback ok handle={handle} user_id={user_id} "
-                f"screen_name={screen_name} display_name={display_name}"
-            )
-
-        try:
-            _debug_twitter(f"get_user_tweets start handle={handle} user_id={user_id}")
-            tweets = await client.get_user_tweets(user_id, count=1)
-            if not tweets:
-                _debug_twitter(f"get_user_tweets empty handle={handle} user_id={user_id}")
-                return None
-            tweet = tweets[0]
-            _debug_twitter(f"get_user_tweets ok handle={handle} user_id={user_id} tweet_id={tweet.id}")
-        except Exception as exc:
-            _debug_twitter(
-                f"get_user_tweets failed handle={handle} user_id={user_id} error={exc!r}; "
-                f"trying search_tweet"
-            )
-            search_tweets = await client.search_tweet(f"from:{screen_name}", "Latest", count=1)
-            if not search_tweets:
-                _debug_twitter(f"search_tweet fallback empty handle={handle} screen_name={screen_name}")
-                return None
-            tweet = search_tweets[0]
-            _debug_twitter(
-                f"search_tweet fallback ok handle={handle} screen_name={screen_name} tweet_id={tweet.id}"
-            )
-
-        tweet_id = str(tweet.id)
-        tweet_url = f"https://x.com/{screen_name}/status/{tweet_id}"
-        _debug_twitter(
-            f"resolve latest tweet final handle={handle} tweet_id={tweet_id} "
-            f"screen_name={screen_name} display_name={display_name}"
-        )
-        return tweet_id, tweet_url, display_name
-
     @commands.Cog.listener()
     async def on_ready(self):
         if not self.check_twitter_posts.is_running():
@@ -242,12 +154,11 @@ class Twitter(Cog_Extension):
                 if not isinstance(item, dict):
                     continue
                 try:
-                    latest = await self._resolve_latest_tweet(handle)
+                    latest = _resolve_latest_tweet(handle)
                 except Exception as exc:
                     _debug_twitter(f"fetch failed guild={guild.id} handle={handle} error={exc}")
                     if _DEBUG_TWITTER:
                         _debug_twitter(f"fetch traceback guild={guild.id} handle={handle}\n{traceback.format_exc()}")
-                    self._client_ready = False
                     continue
 
                 if not latest:
