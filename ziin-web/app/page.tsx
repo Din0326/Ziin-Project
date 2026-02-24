@@ -2,7 +2,15 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { IconMoon, IconSun, IconX } from "@tabler/icons-react";
+import {
+  IconBrandTwitch,
+  IconBrandYoutube,
+  IconFileAnalytics,
+  IconMoon,
+  IconSettings,
+  IconSun,
+  IconX
+} from "@tabler/icons-react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
@@ -48,6 +56,24 @@ type YouTubeSubscription = {
   shortHistory: string[];
 };
 
+type ServerSettingsSnapshot = {
+  prefix: string;
+  timezone?: string;
+  language?: string;
+};
+
+type TwitchSettingsSnapshot = {
+  channel: string;
+  text: string;
+  streamers: string[];
+};
+
+type YouTubeSettingsSnapshot = {
+  channel: string;
+  text: string;
+  subscriptionIds: string[];
+};
+
 export default function Page() {
   const LOG_CHANNEL_TARGETS = [
     { key: "memberLogId", label: "成員事件頻道" },
@@ -84,6 +110,23 @@ export default function Page() {
     voiceLogId: ""
   });
   const [isSavingLogChannels, setIsSavingLogChannels] = React.useState(false);
+  const [savedServerSettings, setSavedServerSettings] = React.useState<ServerSettingsSnapshot>({
+    prefix: "",
+    timezone: undefined,
+    language: undefined
+  });
+  const [savedLogSettings, setSavedLogSettings] = React.useState<Record<string, boolean>>(DEFAULT_LOG_SETTINGS);
+  const [savedLogChannelTargets, setSavedLogChannelTargets] = React.useState<{
+    memberLogId: string;
+    guildLogId: string;
+    messageLogId: string;
+    voiceLogId: string;
+  }>({
+    memberLogId: "",
+    guildLogId: "",
+    messageLogId: "",
+    voiceLogId: ""
+  });
   const [twitchNotificationChannel, setTwitchNotificationChannel] = React.useState("");
   const [twitchNotificationText, setTwitchNotificationText] = React.useState(DEFAULT_TWITCH_NOTIFICATION_TEXT);
   const [twitchStreamers, setTwitchStreamers] = React.useState<string[]>([]);
@@ -95,6 +138,16 @@ export default function Page() {
   const [newYouTubeChannelInput, setNewYouTubeChannelInput] = React.useState("");
   const [isResolvingYouTubeChannel, setIsResolvingYouTubeChannel] = React.useState(false);
   const [isSavingYouTubeSettings, setIsSavingYouTubeSettings] = React.useState(false);
+  const [savedTwitchSettings, setSavedTwitchSettings] = React.useState<TwitchSettingsSnapshot>({
+    channel: "",
+    text: DEFAULT_TWITCH_NOTIFICATION_TEXT,
+    streamers: []
+  });
+  const [savedYouTubeSettings, setSavedYouTubeSettings] = React.useState<YouTubeSettingsSnapshot>({
+    channel: "",
+    text: DEFAULT_YOUTUBE_NOTIFICATION_TEXT,
+    subscriptionIds: []
+  });
   const [isCheckingServerSelection, setIsCheckingServerSelection] = React.useState(false);
   const [showBotInviteModal, setShowBotInviteModal] = React.useState(false);
   const [botInviteUrl, setBotInviteUrl] = React.useState("");
@@ -232,6 +285,7 @@ export default function Page() {
         return;
       }
       toast.success("前綴儲存成功");
+      setSavedServerSettings((current) => ({ ...current, prefix: prefixInput.trim() }));
     } catch {
       toast.error("儲存失敗，請檢查網路後再試");
     } finally {
@@ -265,6 +319,7 @@ export default function Page() {
         return;
       }
       toast.success("時區儲存成功");
+      setSavedServerSettings((current) => ({ ...current, timezone: selectedTimezone }));
     } catch {
       toast.error("儲存失敗，請檢查網路後再試");
     } finally {
@@ -298,6 +353,7 @@ export default function Page() {
         return;
       }
       toast.success("語言儲存成功");
+      setSavedServerSettings((current) => ({ ...current, language: selectedLanguage }));
     } catch {
       toast.error("儲存失敗，請檢查網路後再試");
     } finally {
@@ -333,6 +389,7 @@ export default function Page() {
         return;
       }
       toast.success("Log 設定儲存成功");
+      setSavedLogSettings(logSettings);
     } catch {
       toast.error("儲存失敗，請檢查網路後再試");
     } finally {
@@ -375,6 +432,7 @@ export default function Page() {
       }
 
       toast.success("Log 頻道儲存成功");
+      setSavedLogChannelTargets(logChannelTargets);
     } catch {
       toast.error("儲存失敗，請檢查網路後再試");
     } finally {
@@ -421,6 +479,11 @@ export default function Page() {
         return;
       }
       toast.success("Twitch 設定儲存成功");
+      setSavedTwitchSettings({
+        channel: twitchNotificationChannel,
+        text: twitchNotificationText,
+        streamers: [...twitchStreamers]
+      });
     } catch {
       toast.error("Twitch 設定儲存失敗，請檢查網路後再試");
     } finally {
@@ -506,6 +569,11 @@ export default function Page() {
         return;
       }
       toast.success("YouTube 設定儲存成功");
+      setSavedYouTubeSettings({
+        channel: youtubeNotificationChannel,
+        text: youtubeNotificationText,
+        subscriptionIds: youtubeSubscriptions.map((item) => item.id).sort()
+      });
     } catch {
       toast.error("YouTube 設定儲存失敗，請檢查網路後再試");
     } finally {
@@ -555,6 +623,150 @@ export default function Page() {
   const isAuthenticated = status === "authenticated";
   const showServerPicker = status === "authenticated" && !selectedServerId;
   const [theme, setTheme] = React.useState<"light" | "dark">("light");
+  const [avatarFallbacks, setAvatarFallbacks] = React.useState<Record<string, boolean>>({});
+  const [resolvedAvatars, setResolvedAvatars] = React.useState<Record<string, string>>({});
+  const [resolvedProfileNames, setResolvedProfileNames] = React.useState<Record<string, string>>({});
+  const isServerSettingsDirty = React.useMemo(
+    () =>
+      prefixInput.trim() !== savedServerSettings.prefix ||
+      selectedTimezone !== savedServerSettings.timezone ||
+      selectedLanguage !== savedServerSettings.language,
+    [prefixInput, savedServerSettings, selectedLanguage, selectedTimezone]
+  );
+  const isLogSettingsDirty = React.useMemo(
+    () => JSON.stringify(logSettings) !== JSON.stringify(savedLogSettings),
+    [logSettings, savedLogSettings]
+  );
+  const isLogChannelsDirty = React.useMemo(
+    () => JSON.stringify(logChannelTargets) !== JSON.stringify(savedLogChannelTargets),
+    [logChannelTargets, savedLogChannelTargets]
+  );
+  const isTwitchDirty = React.useMemo(
+    () =>
+      twitchNotificationChannel !== savedTwitchSettings.channel ||
+      twitchNotificationText !== savedTwitchSettings.text ||
+      JSON.stringify(twitchStreamers) !== JSON.stringify(savedTwitchSettings.streamers),
+    [savedTwitchSettings, twitchNotificationChannel, twitchNotificationText, twitchStreamers]
+  );
+  const isYouTubeDirty = React.useMemo(() => {
+    const currentIds = youtubeSubscriptions.map((item) => item.id).sort();
+    return (
+      youtubeNotificationChannel !== savedYouTubeSettings.channel ||
+      youtubeNotificationText !== savedYouTubeSettings.text ||
+      JSON.stringify(currentIds) !== JSON.stringify(savedYouTubeSettings.subscriptionIds)
+    );
+  }, [savedYouTubeSettings, youtubeNotificationChannel, youtubeNotificationText, youtubeSubscriptions]);
+
+  const hasUnsavedChangesOnCurrentPage = React.useMemo(() => {
+    if (activeNavMain === "伺服器設定") {
+      return isServerSettingsDirty;
+    }
+    if (activeNavMain === "Log 系統") {
+      return isLogSettingsDirty || isLogChannelsDirty;
+    }
+    if (activeNavMain === "Twitch") {
+      return isTwitchDirty;
+    }
+    if (activeNavMain === "YouTube") {
+      return isYouTubeDirty;
+    }
+    return false;
+  }, [activeNavMain, isLogChannelsDirty, isLogSettingsDirty, isServerSettingsDirty, isTwitchDirty, isYouTubeDirty]);
+
+  const confirmLeaveIfUnsaved = React.useCallback(() => {
+    if (!hasUnsavedChangesOnCurrentPage) {
+      return true;
+    }
+    return window.confirm("已更改項目尚未儲存，確定要離開嗎？");
+  }, [hasUnsavedChangesOnCurrentPage]);
+
+  const discardUnsavedCurrentPage = React.useCallback(() => {
+    if (activeNavMain === "伺服器設定") {
+      setPrefixInput(savedServerSettings.prefix);
+      setSelectedTimezone(savedServerSettings.timezone);
+      if (savedServerSettings.timezone) {
+        const matched = timezoneOptions.find((timezone) => timezone.value === savedServerSettings.timezone);
+        setTimezoneQuery(matched?.label ?? savedServerSettings.timezone);
+      } else {
+        setTimezoneQuery("");
+      }
+      setSelectedLanguage(savedServerSettings.language);
+      return;
+    }
+
+    if (activeNavMain === "Log 系統") {
+      setLogSettings(savedLogSettings);
+      setLogChannelTargets(savedLogChannelTargets);
+      return;
+    }
+
+    if (activeNavMain === "Twitch") {
+      setTwitchNotificationChannel(savedTwitchSettings.channel);
+      setTwitchNotificationText(savedTwitchSettings.text);
+      setTwitchStreamers(savedTwitchSettings.streamers);
+      setNewTwitchStreamer("");
+      return;
+    }
+
+    if (activeNavMain === "YouTube") {
+      setYouTubeNotificationChannel(savedYouTubeSettings.channel);
+      setYouTubeNotificationText(savedYouTubeSettings.text);
+      setYouTubeSubscriptions((current) => {
+        const byId = new Map(current.map((item) => [item.id, item]));
+        return savedYouTubeSettings.subscriptionIds.map((id) => {
+          const existing = byId.get(id);
+          if (existing) {
+            return existing;
+          }
+          return {
+            id,
+            name: id,
+            videoId: "",
+            streamId: "",
+            shortId: "",
+            videoHistory: [],
+            streamHistory: [],
+            shortHistory: []
+          };
+        });
+      });
+      setNewYouTubeChannelInput("");
+    }
+  }, [
+    activeNavMain,
+    savedLogChannelTargets,
+    savedLogSettings,
+    savedServerSettings,
+    savedTwitchSettings,
+    savedYouTubeSettings,
+    timezoneOptions
+  ]);
+
+  const handleNavMainChange = React.useCallback(
+    (nextTitle: string) => {
+      if (nextTitle === activeNavMain) {
+        return;
+      }
+      if (!confirmLeaveIfUnsaved()) {
+        return;
+      }
+      if (hasUnsavedChangesOnCurrentPage) {
+        discardUnsavedCurrentPage();
+      }
+      setActiveNavMain(nextTitle);
+    },
+    [activeNavMain, confirmLeaveIfUnsaved, discardUnsavedCurrentPage, hasUnsavedChangesOnCurrentPage]
+  );
+
+  const handleSwitchServer = React.useCallback(() => {
+    if (!confirmLeaveIfUnsaved()) {
+      return;
+    }
+    if (hasUnsavedChangesOnCurrentPage) {
+      discardUnsavedCurrentPage();
+    }
+    setSelectedServerId(undefined);
+  }, [confirmLeaveIfUnsaved, discardUnsavedCurrentPage, hasUnsavedChangesOnCurrentPage]);
 
   React.useEffect(() => {
     if (!isAuthenticated || showServerPicker) {
@@ -696,6 +908,7 @@ export default function Page() {
       }
 
       setPrefixInput(typeof data.prefix === "string" ? data.prefix : "");
+      let normalizedTimezoneValue: string | undefined;
 
       if (typeof data.timezone === "string") {
         const timezoneIdFromValue =
@@ -711,6 +924,7 @@ export default function Page() {
           }
           return false;
         });
+        normalizedTimezoneValue = matchedTimezone?.value;
         setSelectedTimezone(matchedTimezone?.value);
         setTimezoneQuery(matchedTimezone?.label ?? data.timezone);
       } else {
@@ -718,21 +932,34 @@ export default function Page() {
         setTimezoneQuery("");
       }
 
+      let normalizedLanguage: string | undefined;
       if (typeof data.language === "string") {
         if (data.language === "zh-TW") {
-          setSelectedLanguage("zh-TW");
+          normalizedLanguage = "zh-TW";
         } else if (data.language === "en") {
-          setSelectedLanguage("English");
+          normalizedLanguage = "English";
         } else if (data.language === "繁體中文") {
-          setSelectedLanguage("zh-TW");
+          normalizedLanguage = "zh-TW";
         } else {
-          setSelectedLanguage(data.language);
+          normalizedLanguage = data.language;
         }
+        setSelectedLanguage(normalizedLanguage);
       } else {
         setSelectedLanguage(undefined);
       }
 
       setLogChannelTargets({
+        guildLogId: typeof data.guildLogId === "string" ? data.guildLogId : "",
+        memberLogId: typeof data.memberLogId === "string" ? data.memberLogId : "",
+        messageLogId: typeof data.messageLogId === "string" ? data.messageLogId : "",
+        voiceLogId: typeof data.voiceLogId === "string" ? data.voiceLogId : ""
+      });
+      setSavedServerSettings({
+        prefix: typeof data.prefix === "string" ? data.prefix : "",
+        timezone: normalizedTimezoneValue,
+        language: normalizedLanguage
+      });
+      setSavedLogChannelTargets({
         guildLogId: typeof data.guildLogId === "string" ? data.guildLogId : "",
         memberLogId: typeof data.memberLogId === "string" ? data.memberLogId : "",
         messageLogId: typeof data.messageLogId === "string" ? data.messageLogId : "",
@@ -780,6 +1007,59 @@ export default function Page() {
   }, [selectedServerId]);
 
   React.useEffect(() => {
+    const resolveAvatar = async (platform: "twitch" | "youtube", id: string) => {
+      const key = `${platform}:${id}`;
+      if (resolvedAvatars[key] || avatarFallbacks[key]) {
+        return;
+      }
+      try {
+        const response = await fetch(
+          `/api/profile-avatar?platform=${encodeURIComponent(platform)}&id=${encodeURIComponent(id)}`,
+          { method: "GET" }
+        );
+        if (!response.ok) {
+          setAvatarFallbacks((current) => ({ ...current, [key]: true }));
+          return;
+        }
+        const result = (await response.json()) as { avatarUrl?: unknown; profileName?: unknown };
+        if (typeof result.avatarUrl !== "string" || !result.avatarUrl) {
+          setAvatarFallbacks((current) => ({ ...current, [key]: true }));
+          return;
+        }
+        const avatarUrl = result.avatarUrl;
+        setResolvedAvatars((current) => ({ ...current, [key]: avatarUrl }));
+        if (typeof result.profileName === "string" && result.profileName.trim()) {
+          const profileName = result.profileName.trim();
+          setResolvedProfileNames((current) => ({ ...current, [key]: profileName }));
+        }
+        if (platform === "youtube" && typeof result.profileName === "string" && result.profileName.trim()) {
+          const profileName = result.profileName.trim();
+          setYouTubeSubscriptions((current) =>
+            current.map((item) => {
+              if (item.id !== id) {
+                return item;
+              }
+              if (item.name && item.name !== item.id) {
+                return item;
+              }
+              return { ...item, name: profileName };
+            })
+          );
+        }
+      } catch {
+        setAvatarFallbacks((current) => ({ ...current, [key]: true }));
+      }
+    };
+
+    twitchStreamers.forEach((streamer) => {
+      void resolveAvatar("twitch", streamer);
+    });
+    youtubeSubscriptions.forEach((subscription) => {
+      void resolveAvatar("youtube", subscription.id);
+    });
+  }, [avatarFallbacks, resolvedAvatars, twitchStreamers, youtubeSubscriptions]);
+
+  React.useEffect(() => {
     if (!selectedServerId) {
       setLogSettings(DEFAULT_LOG_SETTINGS);
       return;
@@ -810,6 +1090,7 @@ export default function Page() {
         }
       }
       setLogSettings(nextSettings);
+      setSavedLogSettings(nextSettings);
     };
 
     void loadLogSettings();
@@ -856,6 +1137,16 @@ export default function Page() {
       setTwitchStreamers(
         Array.isArray(data.allStreamers) ? data.allStreamers.filter((item): item is string => typeof item === "string") : []
       );
+      setSavedTwitchSettings({
+        channel: typeof data.twitchNotificationChannel === "string" ? data.twitchNotificationChannel : "",
+        text:
+          typeof data.twitchNotificationText === "string"
+            ? data.twitchNotificationText
+            : DEFAULT_TWITCH_NOTIFICATION_TEXT,
+        streamers: Array.isArray(data.allStreamers)
+          ? data.allStreamers.filter((item): item is string => typeof item === "string")
+          : []
+      });
     };
 
     void loadTwitchSettings();
@@ -922,6 +1213,20 @@ export default function Page() {
               .filter((item) => item.id)
           : []
       );
+      setSavedYouTubeSettings({
+        channel: typeof data.youtubeNotificationChannel === "string" ? data.youtubeNotificationChannel : "",
+        text:
+          typeof data.youtubeNotificationText === "string"
+            ? data.youtubeNotificationText
+            : DEFAULT_YOUTUBE_NOTIFICATION_TEXT,
+        subscriptionIds: Array.isArray(data.youtubers)
+          ? data.youtubers
+              .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+              .map((item) => (typeof item.id === "string" ? item.id : ""))
+              .filter((id) => id.length > 0)
+              .sort()
+          : []
+      });
     };
 
     void loadYouTubeSettings();
@@ -945,8 +1250,8 @@ export default function Page() {
         activeNavMainTitle={isAuthenticated && !showServerPicker ? activeNavMain : undefined}
         isAuthenticated={isAuthenticated}
         onLogin={handleLoginClick}
-        onNavMainClick={setActiveNavMain}
-        onSwitchServer={() => setSelectedServerId(undefined)}
+        onNavMainClick={handleNavMainChange}
+        onSwitchServer={handleSwitchServer}
         onLogout={handleLogoutClick}
         currentServerName={currentServerName}
         user={{
@@ -1062,7 +1367,10 @@ export default function Page() {
 
                 {isAuthenticated && !showServerPicker && activeNavMain === "伺服器設定" && (
                   <div className="mx-auto mt-8 w-full max-w-[66.666%] space-y-5">
-                    <h2 className="text-5xl font-semibold tracking-tight">伺服器設定</h2>
+                    <h2 className="flex items-center gap-3 text-5xl font-semibold tracking-tight">
+                      <IconSettings className="size-11" />
+                      <span>伺服器設定</span>
+                    </h2>
                     <div className="bg-border h-px w-full" />
                     <div className="grid grid-cols-2 gap-6 pt-4">
                       <div className="space-y-3">
@@ -1162,7 +1470,10 @@ export default function Page() {
 
                 {isAuthenticated && !showServerPicker && activeNavMain === "Log 系統" && (
                   <div className="mx-auto mt-8 w-full max-w-[66.666%] space-y-5">
-                    <h2 className="text-5xl font-semibold tracking-tight">Log 系統</h2>
+                    <h2 className="flex items-center gap-3 text-5xl font-semibold tracking-tight">
+                      <IconFileAnalytics className="size-11" />
+                      <span>Log 系統</span>
+                    </h2>
                     <div className="bg-border h-px w-full" />
                     <div className="rounded-xl border bg-card/40 p-4">
                       <h3 className="text-base font-semibold">事件通知頻道</h3>
@@ -1248,7 +1559,10 @@ export default function Page() {
                 )}
                 {isAuthenticated && !showServerPicker && activeNavMain === "Twitch" && (
                   <div className="mx-auto mt-8 w-full max-w-[66.666%] space-y-5">
-                    <h2 className="text-5xl font-semibold tracking-tight">Twitch</h2>
+                    <h2 className="flex items-center gap-3 text-5xl font-semibold tracking-tight">
+                      <IconBrandTwitch className="size-11" />
+                      <span>Twitch</span>
+                    </h2>
                     <div className="bg-border h-px w-full" />
                     <div className="rounded-xl border bg-card/40 p-4">
                       <h3 className="text-base font-semibold">通知設定</h3>
@@ -1281,6 +1595,9 @@ export default function Page() {
                             onChange={(event) => setTwitchNotificationText(event.target.value)}
                             placeholder="例如：**{streamer}** is live now!! **{url}**"
                           />
+                          <p className="text-muted-foreground text-xs">
+                            {"{streamer}"} 會自動替換實況主名稱，{"{url}"} 會自動替換實況連結。
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -1303,7 +1620,31 @@ export default function Page() {
                         )}
                         {twitchStreamers.map((streamer) => (
                           <div key={streamer} className="flex items-center justify-between rounded-md border px-3 py-2">
-                            <span className="text-sm">{streamer}</span>
+                            <div className="flex items-center gap-2">
+                              {avatarFallbacks[`twitch:${streamer}`] ? (
+                                <div className="bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold">
+                                  {streamer.slice(0, 1).toUpperCase()}
+                                </div>
+                              ) : !resolvedAvatars[`twitch:${streamer}`] ? (
+                                <div className="bg-muted/60 h-8 w-8 rounded-full border" />
+                              ) : (
+                                <img
+                                  src={resolvedAvatars[`twitch:${streamer}`]}
+                                  alt={`${streamer} avatar`}
+                                  className="h-8 w-8 rounded-full border object-cover"
+                                  referrerPolicy="no-referrer"
+                                  onError={() =>
+                                    setAvatarFallbacks((current) => ({ ...current, [`twitch:${streamer}`]: true }))
+                                  }
+                                />
+                              )}
+                              <span className="text-sm">
+                                {resolvedProfileNames[`twitch:${streamer}`] &&
+                                resolvedProfileNames[`twitch:${streamer}`].toLowerCase() !== streamer.toLowerCase()
+                                  ? `${resolvedProfileNames[`twitch:${streamer}`]} (${streamer})`
+                                  : streamer}
+                              </span>
+                            </div>
                             <Button
                               type="button"
                               size="sm"
@@ -1324,7 +1665,10 @@ export default function Page() {
                 )}
                 {isAuthenticated && !showServerPicker && activeNavMain === "YouTube" && (
                   <div className="mx-auto mt-8 w-full max-w-[66.666%] space-y-5">
-                    <h2 className="text-5xl font-semibold tracking-tight">YouTube</h2>
+                    <h2 className="flex items-center gap-3 text-5xl font-semibold tracking-tight">
+                      <IconBrandYoutube className="size-11" />
+                      <span>YouTube</span>
+                    </h2>
                     <div className="bg-border h-px w-full" />
                     <div className="rounded-xl border bg-card/40 p-4">
                       <h3 className="text-base font-semibold">通知設定</h3>
@@ -1357,6 +1701,9 @@ export default function Page() {
                             onChange={(event) => setYouTubeNotificationText(event.target.value)}
                             placeholder="例如：**{ytber}** upload a video!! **{url}**"
                           />
+                          <p className="text-muted-foreground text-xs">
+                            {"{ytber}"} 會自動替換 YouTuber 名稱，{"{url}"} 會自動替換影片連結。
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -1382,9 +1729,31 @@ export default function Page() {
                         )}
                         {youtubeSubscriptions.map((subscription) => (
                           <div key={subscription.id} className="flex items-center justify-between rounded-md border px-3 py-2">
-                            <div>
+                            <div className="flex items-center gap-2">
+                              {avatarFallbacks[`youtube:${subscription.id}`] ? (
+                                <div className="bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold">
+                                  {(subscription.name || subscription.id).slice(0, 1).toUpperCase()}
+                                </div>
+                              ) : !resolvedAvatars[`youtube:${subscription.id}`] ? (
+                                <div className="bg-muted/60 h-8 w-8 rounded-full border" />
+                              ) : (
+                                <img
+                                  src={resolvedAvatars[`youtube:${subscription.id}`]}
+                                  alt={`${subscription.name || subscription.id} avatar`}
+                                  className="h-8 w-8 rounded-full border object-cover"
+                                  referrerPolicy="no-referrer"
+                                  onError={() =>
+                                    setAvatarFallbacks((current) => ({
+                                      ...current,
+                                      [`youtube:${subscription.id}`]: true
+                                    }))
+                                  }
+                                />
+                              )}
+                              <div>
                               <p className="text-sm font-semibold">{subscription.name || subscription.id}</p>
                               <p className="text-muted-foreground text-xs">{subscription.id}</p>
+                              </div>
                             </div>
                             <Button
                               type="button"

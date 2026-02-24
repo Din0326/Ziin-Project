@@ -5,8 +5,8 @@ import Image from "next/image";
 import {
   IconBrandTwitch,
   IconBrandYoutube,
-  IconDashboard,
-  IconListDetails
+  IconFileAnalytics,
+  IconSettings
 } from "@tabler/icons-react";
 
 import {
@@ -30,12 +30,12 @@ const data = {
     {
       title: "伺服器設定",
       url: "#",
-      icon: IconDashboard
+      icon: IconSettings
     },
     {
       title: "Log 系統",
       url: "#",
-      icon: IconListDetails
+      icon: IconFileAnalytics
     }
   ],
   navNotifications: [
