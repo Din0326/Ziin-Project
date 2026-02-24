@@ -20,7 +20,7 @@ _DEBUG_TWITTER = os.getenv("DEBUG_TWITTER", "0") == "1"
 _TWITTER_AUTH_INFO_1 = os.getenv("TWITTER_AUTH_INFO_1", "").strip()
 _TWITTER_AUTH_INFO_2 = os.getenv("TWITTER_AUTH_INFO_2", "").strip()
 _TWITTER_PASSWORD = os.getenv("TWITTER_PASSWORD", "").strip()
-_TWITTER_COOKIES_PATH = os.getenv("TWITTER_COOKIES_PATH", "/app/data/twitter_cookies.json").strip() or "/app/data/twitter_cookies.json"
+_TWITTER_COOKIES_PATH = os.getenv("TWITTER_COOKIES_PATH", "").strip()
 
 
 def _debug_twitter(message: str) -> None:
@@ -79,30 +79,41 @@ class Twitter(Cog_Extension):
         super().__init__(bot)
         self._client: Client | None = None
         self._client_ready = False
-        self._cookie_path = Path(_TWITTER_COOKIES_PATH)
+        if _TWITTER_COOKIES_PATH:
+            self._cookie_paths = [Path(_TWITTER_COOKIES_PATH)]
+        else:
+            self._cookie_paths = [
+                Path("/app/cookies.json"),
+                Path("/shared-data/twitter_cookies.json"),
+                Path("/shared-data/cookies.json"),
+            ]
 
     async def _activate_logged_client(self, client: Client) -> None:
         if not _TWITTER_AUTH_INFO_1 or not _TWITTER_PASSWORD:
             raise RuntimeError("TWITTER_AUTH_INFO_1 or TWITTER_PASSWORD is missing")
 
-        loaded_from_cookie = False
-        if self._cookie_path.exists():
+        for cookie_path in self._cookie_paths:
+            if not cookie_path.exists():
+                _debug_twitter(f"load cookies skip path={cookie_path} reason=not_found")
+                continue
             try:
-                _debug_twitter(f"load cookies start path={self._cookie_path}")
-                client.load_cookies(str(self._cookie_path))
-                loaded_from_cookie = True
-                _debug_twitter("load cookies ok")
+                _debug_twitter(f"load cookies start path={cookie_path}")
+                client.load_cookies(str(cookie_path))
+                _debug_twitter(f"load cookies ok path={cookie_path}")
             except Exception as exc:
-                _debug_twitter(f"load cookies failed error={exc!r}")
+                _debug_twitter(f"load cookies failed path={cookie_path} error={exc!r}")
+                continue
 
-        if loaded_from_cookie:
             try:
-                _debug_twitter("validate cookies start")
+                _debug_twitter(f"validate cookies start path={cookie_path}")
                 await client.search_tweet("from:Twitter", "Latest", count=1)
-                _debug_twitter("validate cookies ok")
+                _debug_twitter(f"validate cookies ok path={cookie_path}")
                 return
             except Exception as exc:
-                _debug_twitter(f"validate cookies failed error={exc!r}; relogin")
+                _debug_twitter(f"validate cookies failed path={cookie_path} error={exc!r}; relogin")
+
+        if not _TWITTER_AUTH_INFO_1 or not _TWITTER_PASSWORD:
+            raise RuntimeError("twitter cookies are missing/invalid and login credentials are not configured")
 
         login_kwargs: dict[str, str] = {
             "auth_info_1": _TWITTER_AUTH_INFO_1,
@@ -116,9 +127,10 @@ class Twitter(Cog_Extension):
         _debug_twitter("login ok")
 
         try:
-            self._cookie_path.parent.mkdir(parents=True, exist_ok=True)
-            client.save_cookies(str(self._cookie_path))
-            _debug_twitter(f"save cookies ok path={self._cookie_path}")
+            save_path = self._cookie_paths[0]
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            client.save_cookies(str(save_path))
+            _debug_twitter(f"save cookies ok path={save_path}")
         except Exception as exc:
             _debug_twitter(f"save cookies failed error={exc!r}")
 
