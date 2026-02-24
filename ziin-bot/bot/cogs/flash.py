@@ -25,7 +25,6 @@ class Flash(Cog_Extension):
 	@commands.check(dinID)
 	@commands.hybrid_command(with_app_command=True)
 	async def fkick(self, ctx: commands.Context, dateline: str):
-		#loading = await ctx.send('霈?葉...')
 		dateline = f"{dateline} 00:00:00"
 		dateline_dt = datetime.strptime(dateline,"%d/%m/%Y %H:%M:%S")
 		join_today = 0
@@ -34,7 +33,7 @@ class Flash(Cog_Extension):
 		miss_message = 0
 		breaked = 0
 		total = 0
-		loading = await ctx.send('霈?葉...')
+		loading = await ctx.send('讀取中...')
 		failed = []
 		failed_db = []
 		for target in ctx.guild.members:
@@ -48,7 +47,6 @@ class Flash(Cog_Extension):
 			if info_data == None:
 				join_dt = datetime.strptime((target.joined_at + timedelta(hours=8)).strftime("%d/%m/%Y %H:%M:%S"),"%d/%m/%Y %H:%M:%S")
 				if join_dt.day == datetime.now().day:
-					#await ctx.send('隞予?')
 					join_today += 1
 				else:
 					try:
@@ -67,7 +65,6 @@ class Flash(Cog_Extension):
 					continue
 				if target_dt >= dateline_dt:
 					pass_message += 1
-					#await ctx.send(f"?芣迫?亦: {dateline}\n?敺?甈∠閮?? {last_message_time}\n??")
 				else:
 					miss_message += 1
 					try:
@@ -76,9 +73,9 @@ class Flash(Cog_Extension):
 						failed.append(target.id)
 			total += 1
 			if random.randint(1,100) > 90:
-				print(f"total:{total}\n隞予?:{join_today}\n瘝閮??{zero_message}\n餈??扳??潸?:{pass_message}\n餈??抒?潸?:{miss_message}----{breaked}")
-			await ctx.send(f"隞予?:{join_today}\n瘝閮??{zero_message}\n餈??扳??潸?:{pass_message}\n餈??抒?潸?:{miss_message}----{breaked}")
-			await loading.edit(content="Done")
+				print(f"total:{total}\n今天加入:{join_today}\n沒發言過:{zero_message}\n近期內有發言:{pass_message}\n近期內無發言:{miss_message}----{breaked}")
+		await ctx.send(f"今天加入:{join_today}\n沒發言過:{zero_message}\n近期內有發言:{pass_message}\n近期內無發言:{miss_message}----{breaked}")
+		await loading.edit(content='完成！')
 	
 	@commands.Cog.listener()
 	async def on_voice_state_update(self, member: discord.Member, before: str, after: str):
@@ -87,7 +84,7 @@ class Flash(Cog_Extension):
 		if before.channel and str(before.channel.id) in gamingChannel.keys():
 			if not before.channel.members:
 				gamingChannel.pop(str(before.channel.id))
-				await before.channel.edit(name='頠??駁?',user_limit=0)
+				await before.channel.edit(name='車拚頻道',user_limit=0)
 
 	@commands.Cog.listener()
 	async def on_member_join(self, member: discord.Member):
@@ -105,23 +102,24 @@ class Flash(Cog_Extension):
 	@commands.hybrid_command(with_app_command=True)
 	async def adddd(self, ctx: commands.Context):
 		Remsg = await self.bot.get_channel(1072181968676069396).fetch_message(1072222608478699570)
-		await Remsg.add_reaction("?")
-		await Remsg.add_reaction("?")
-		await Remsg.add_reaction("?")
-		await Remsg.add_reaction("?")
-		await Remsg.add_reaction("?")
+		await Remsg.add_reaction("🟧")
+		await Remsg.add_reaction("🟪")
+		await Remsg.add_reaction("🟦")
+		await Remsg.add_reaction("🟩")
+		await Remsg.add_reaction("🟥")
 
 	@commands.Cog.listener()
 	async def on_raw_reaction_add(self, payload: str):
-		#頨怠?蝯?????		role_msg = await self.bot.get_channel(1072181968676069396).fetch_message(1072222608478699570)
+		#身分組領取訊息
+		role_msg = await self.bot.get_channel(1072181968676069396).fetch_message(1072222608478699570)
 		if payload.message_id == 1072222608478699570:
-			#銵冽?撠??澈??id
+			#表情對應的身分組id
 			reaction_role = {
-				"?" : 1072220703316779059,
-				"?" : 1072192352405434368,
-				"?" : 1072193106742628383,
-				"?" : 1072191846144561322,
-				"?" : 1072709271046860800
+				"🟧" : 1072220703316779059,
+				"🟪" : 1072192352405434368,
+				"🟦" : 1072193106742628383,
+				"🟩" : 1072191846144561322,
+				"🟥" : 1072709271046860800
 			}
 			roleID = reaction_role[payload.emoji.name]
 			user_role = self.bot.get_guild(payload.guild_id).get_role(roleID)
@@ -134,15 +132,16 @@ class Flash(Cog_Extension):
 
 	@commands.Cog.listener()
 	async def on_raw_reaction_remove(self, payload: str):
-		#頨怠?蝯?????		role_msg = await self.bot.get_channel(1072181968676069396).fetch_message(1072222608478699570)
+		#身分組領取訊息
+		role_msg = await self.bot.get_channel(1072181968676069396).fetch_message(1072222608478699570)
 		if payload.message_id == 1072222608478699570:
-			#銵冽?撠??澈??id
+			#表情對應的身分組id
 			reaction_role = {
-				"?" : 1072220703316779059,
-				"?" : 1072192352405434368,
-				"?" : 1072193106742628383,
-				"?" : 1072191846144561322,
-				"?" : 1072709271046860800
+				"🟧" : 1072220703316779059,
+				"🟪" : 1072192352405434368,
+				"🟦" : 1072193106742628383,
+				"🟩" : 1072191846144561322,
+				"🟥" : 1072709271046860800
 			}
 			roleID = reaction_role[payload.emoji.name]
 			user_role = self.bot.get_guild(payload.guild_id).get_role(roleID)
@@ -155,15 +154,6 @@ class Flash(Cog_Extension):
 						await role_msg.remove_reaction(reaction,reaction_user)
 					except:
 						pass
-
-					# 鈭箸憭芸?撠敺芰??憭芷 ?銝末
-				#for reaction in role_msg.reactions:
-				#	users = []
-				#	async for user in reaction.users():
-				#		users.append(user.id)
-				#	if reaction_user.id in users:
-				#		await role_msg.remove_reaction(reaction.emoji,reaction_user)
-
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Flash(bot))
