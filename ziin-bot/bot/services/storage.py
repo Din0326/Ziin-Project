@@ -24,6 +24,14 @@ def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
     return any(row[1] == column for row in cursor.fetchall())
 
 
+def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+        (table,),
+    ).fetchone()
+    return row is not None
+
+
 def _is_locked_error(exc: sqlite3.OperationalError) -> bool:
     return "database is locked" in str(exc).lower()
 
@@ -124,11 +132,13 @@ def init_storage(local_db_path: Optional[Path]) -> sqlite3.Connection:
     conn.execute("PRAGMA busy_timeout = 30000")
 
     schema_path = base_dir / "data" / "schema.sql"
-    _debug_sql(f"exec schema: {schema_path}")
     schema_sql = schema_path.read_text(encoding="utf-8")
+    need_bootstrap_schema = not _table_exists(conn, "guild_settings")
+    _debug_sql(f"schema bootstrap required={need_bootstrap_schema} path={schema_path}")
 
     def _bootstrap_schema() -> None:
-        conn.executescript(schema_sql)
+        if need_bootstrap_schema:
+            conn.executescript(schema_sql)
         _apply_sql_migrations(conn, base_dir / "data" / "migrations")
         conn.commit()
 
