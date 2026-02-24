@@ -92,11 +92,13 @@ export default function Page() {
   const [selectedLanguage, setSelectedLanguage] = React.useState<string | undefined>(undefined);
   const [timezoneQuery, setTimezoneQuery] = React.useState("");
   const [showTimezoneSuggestions, setShowTimezoneSuggestions] = React.useState(false);
+  const [channelQueries, setChannelQueries] = React.useState<Record<string, string>>({});
+  const [showChannelSuggestions, setShowChannelSuggestions] = React.useState<Record<string, boolean>>({});
   const [isSavingPrefix, setIsSavingPrefix] = React.useState(false);
   const [isSavingTimezone, setIsSavingTimezone] = React.useState(false);
   const [isSavingLanguage, setIsSavingLanguage] = React.useState(false);
   const [logSettings, setLogSettings] = React.useState<Record<string, boolean>>(DEFAULT_LOG_SETTINGS);
-  const [isSavingLogSettings, setIsSavingLogSettings] = React.useState(false);
+  const [isSavingLogConfig, setIsSavingLogConfig] = React.useState(false);
   const [serverChannels, setServerChannels] = React.useState<Array<{ id: string; name: string }>>([]);
   const [logChannelTargets, setLogChannelTargets] = React.useState<{
     memberLogId: string;
@@ -109,7 +111,6 @@ export default function Page() {
     messageLogId: "",
     voiceLogId: ""
   });
-  const [isSavingLogChannels, setIsSavingLogChannels] = React.useState(false);
   const [savedServerSettings, setSavedServerSettings] = React.useState<ServerSettingsSnapshot>({
     prefix: "",
     timezone: undefined,
@@ -248,6 +249,73 @@ export default function Page() {
     setShowTimezoneSuggestions(false);
   };
 
+  const getChannelLabel = React.useCallback(
+    (channelId?: string) => {
+      if (!channelId) {
+        return "";
+      }
+      const channel = serverChannels.find((item) => item.id === channelId);
+      return channel ? `#${channel.name}` : "";
+    },
+    [serverChannels]
+  );
+
+  const getChannelInputValue = React.useCallback(
+    (pickerKey: string, selectedChannelId?: string) => {
+      const query = channelQueries[pickerKey];
+      if (typeof query === "string") {
+        return query;
+      }
+      return getChannelLabel(selectedChannelId);
+    },
+    [channelQueries, getChannelLabel]
+  );
+
+  const getFilteredChannels = React.useCallback(
+    (pickerKey: string) => {
+      const keyword = (channelQueries[pickerKey] ?? "").trim().toLowerCase();
+      if (!keyword) {
+        return serverChannels;
+      }
+      return serverChannels.filter(
+        (channel) => channel.name.toLowerCase().includes(keyword) || channel.id.includes(keyword)
+      );
+    },
+    [channelQueries, serverChannels]
+  );
+
+  const selectChannel = React.useCallback(
+    (
+      pickerKey: string,
+      channel: { id: string; name: string } | null,
+      onSelect: (channelId: string) => void
+    ) => {
+      onSelect(channel ? channel.id : "");
+      setChannelQueries((current) => ({
+        ...current,
+        [pickerKey]: channel ? `#${channel.name}` : ""
+      }));
+      setShowChannelSuggestions((current) => ({ ...current, [pickerKey]: false }));
+    },
+    []
+  );
+  const isChannelPickerValid = React.useCallback(
+    (pickerKey: string, selectedChannelId?: string) => {
+      const hasQuery = Object.prototype.hasOwnProperty.call(channelQueries, pickerKey);
+      if (!hasQuery) {
+        return true;
+      }
+
+      const query = (channelQueries[pickerKey] ?? "").trim();
+      if (!query) {
+        return !selectedChannelId;
+      }
+
+      return query === getChannelLabel(selectedChannelId);
+    },
+    [channelQueries, getChannelLabel]
+  );
+
   const toggleLogSetting = (key: string) => {
     if (UNAVAILABLE_LOG_SETTING_KEYS.has(key)) {
       return;
@@ -260,7 +328,7 @@ export default function Page() {
   };
 
   const handleSavePrefix = async () => {
-    if (!selectedServerId) {
+    if (!selectedServerId || !prefixInput.trim()) {
       return;
     }
 
@@ -361,22 +429,26 @@ export default function Page() {
     }
   };
 
-  const handleSaveLogSettings = async () => {
+  const handleSaveLogConfig = async () => {
     if (!selectedServerId) {
       return;
     }
+    if (!isLogChannelSelectionValid) {
+      toast.error("請從清單選擇有效的頻道，或清空欄位");
+      return;
+    }
 
-    setIsSavingLogSettings(true);
+    setIsSavingLogConfig(true);
     try {
-      const response = await fetch(`/api/log-settings/${selectedServerId}`, {
+      const settingsResponse = await fetch(`/api/log-settings/${selectedServerId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ settings: logSettings })
       });
-      if (!response.ok) {
+      if (!settingsResponse.ok) {
         let errorMessage = "儲存失敗，請稍後再試";
         try {
-          const errorData = (await response.json()) as { error?: unknown; message?: unknown };
+          const errorData = (await settingsResponse.json()) as { error?: unknown; message?: unknown };
           if (typeof errorData.error === "string" && errorData.error) {
             errorMessage = errorData.error;
           } else if (typeof errorData.message === "string" && errorData.message) {
@@ -388,23 +460,8 @@ export default function Page() {
         toast.error(errorMessage);
         return;
       }
-      toast.success("Log 設定儲存成功");
-      setSavedLogSettings(logSettings);
-    } catch {
-      toast.error("儲存失敗，請檢查網路後再試");
-    } finally {
-      setIsSavingLogSettings(false);
-    }
-  };
 
-  const handleSaveLogChannels = async () => {
-    if (!selectedServerId) {
-      return;
-    }
-
-    setIsSavingLogChannels(true);
-    try {
-      const response = await fetch(`/api/server-settings/${selectedServerId}`, {
+      const channelsResponse = await fetch(`/api/server-settings/${selectedServerId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -415,10 +472,10 @@ export default function Page() {
         })
       });
 
-      if (!response.ok) {
+      if (!channelsResponse.ok) {
         let errorMessage = "儲存失敗，請稍後再試";
         try {
-          const errorData = (await response.json()) as { error?: unknown; message?: unknown };
+          const errorData = (await channelsResponse.json()) as { error?: unknown; message?: unknown };
           if (typeof errorData.error === "string" && errorData.error) {
             errorMessage = errorData.error;
           } else if (typeof errorData.message === "string" && errorData.message) {
@@ -431,12 +488,13 @@ export default function Page() {
         return;
       }
 
-      toast.success("Log 頻道儲存成功");
+      setSavedLogSettings(logSettings);
       setSavedLogChannelTargets(logChannelTargets);
+      toast.success("Log 設定儲存成功");
     } catch {
       toast.error("儲存失敗，請檢查網路後再試");
     } finally {
-      setIsSavingLogChannels(false);
+      setIsSavingLogConfig(false);
     }
   };
 
@@ -459,6 +517,10 @@ export default function Page() {
 
   const handleSaveTwitchSettings = async () => {
     if (!selectedServerId) {
+      return;
+    }
+    if (!isTwitchChannelSelectionValid) {
+      toast.error("請從清單選擇有效的通知頻道，或清空欄位");
       return;
     }
 
@@ -549,6 +611,10 @@ export default function Page() {
 
   const handleSaveYouTubeSettings = async () => {
     if (!selectedServerId) {
+      return;
+    }
+    if (!isYouTubeChannelSelectionValid) {
+      toast.error("請從清單選擇有效的通知頻道，或清空欄位");
       return;
     }
 
@@ -656,6 +722,28 @@ export default function Page() {
       JSON.stringify(currentIds) !== JSON.stringify(savedYouTubeSettings.subscriptionIds)
     );
   }, [savedYouTubeSettings, youtubeNotificationChannel, youtubeNotificationText, youtubeSubscriptions]);
+  const isLogChannelSelectionValid = React.useMemo(
+    () =>
+      isChannelPickerValid("log:memberLogId", logChannelTargets.memberLogId) &&
+      isChannelPickerValid("log:guildLogId", logChannelTargets.guildLogId) &&
+      isChannelPickerValid("log:messageLogId", logChannelTargets.messageLogId) &&
+      isChannelPickerValid("log:voiceLogId", logChannelTargets.voiceLogId),
+    [
+      isChannelPickerValid,
+      logChannelTargets.memberLogId,
+      logChannelTargets.guildLogId,
+      logChannelTargets.messageLogId,
+      logChannelTargets.voiceLogId
+    ]
+  );
+  const isTwitchChannelSelectionValid = React.useMemo(
+    () => isChannelPickerValid("twitch:notification", twitchNotificationChannel),
+    [isChannelPickerValid, twitchNotificationChannel]
+  );
+  const isYouTubeChannelSelectionValid = React.useMemo(
+    () => isChannelPickerValid("youtube:notification", youtubeNotificationChannel),
+    [isChannelPickerValid, youtubeNotificationChannel]
+  );
 
   const hasUnsavedChangesOnCurrentPage = React.useMemo(() => {
     if (activeNavMain === "伺服器設定") {
@@ -844,6 +932,8 @@ export default function Page() {
       setShowBotInviteModal(false);
       setBotInviteUrl("");
       setBotInviteServerName("");
+      setChannelQueries({});
+      setShowChannelSuggestions({});
       setLogChannelTargets({
         memberLogId: "",
         guildLogId: "",
@@ -1384,7 +1474,10 @@ export default function Page() {
                             value={prefixInput}
                             onChange={(event) => setPrefixInput(event.target.value)}
                           />
-                          <Button className="!h-12 px-5" onClick={handleSavePrefix} disabled={isSavingPrefix}>
+                          <Button
+                            className="!h-12 px-5"
+                            onClick={handleSavePrefix}
+                            disabled={isSavingPrefix || !prefixInput.trim()}>
                             {isSavingPrefix ? "儲存中..." : "確認"}
                           </Button>
                         </div>
@@ -1481,33 +1574,70 @@ export default function Page() {
                         {LOG_CHANNEL_TARGETS.map((target) => (
                           <div key={target.key} className="space-y-2">
                             <p className="text-muted-foreground text-sm">{target.label}</p>
-                            <Select
-                              value={logChannelTargets[target.key] || "__none__"}
-                              onValueChange={(value) =>
-                                setLogChannelTargets((current) => ({
-                                  ...current,
-                                  [target.key]: value === "__none__" ? "" : value
-                                }))
-                              }>
-                              <SelectTrigger className="!h-11 !w-full rounded-lg bg-background/40 text-sm">
-                                <SelectValue placeholder="請選擇頻道" />
-                              </SelectTrigger>
-                              <SelectContent position="popper" side="bottom" align="start" sideOffset={6}>
-                                <SelectItem value="__none__">不使用</SelectItem>
-                                {serverChannels.map((channel) => (
-                                  <SelectItem key={channel.id} value={channel.id}>
-                                    #{channel.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <div className="relative">
+                              <Input
+                                className="!h-11 w-full rounded-lg bg-background/40 text-sm"
+                                value={getChannelInputValue(`log:${target.key}`, logChannelTargets[target.key])}
+                                placeholder="輸入頻道名稱篩選"
+                                onFocus={() =>
+                                  setShowChannelSuggestions((current) => ({
+                                    ...current,
+                                    [`log:${target.key}`]: true
+                                  }))
+                                }
+                                onBlur={() => {
+                                  window.setTimeout(
+                                    () =>
+                                      setShowChannelSuggestions((current) => ({
+                                        ...current,
+                                        [`log:${target.key}`]: false
+                                      })),
+                                    120
+                                  );
+                                }}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setChannelQueries((current) => ({
+                                    ...current,
+                                    [`log:${target.key}`]: value
+                                  }));
+                                  setLogChannelTargets((current) => ({
+                                    ...current,
+                                    [target.key]: ""
+                                  }));
+                                  setShowChannelSuggestions((current) => ({
+                                    ...current,
+                                    [`log:${target.key}`]: true
+                                  }));
+                                }}
+                              />
+                              {showChannelSuggestions[`log:${target.key}`] && (
+                                <div className="bg-popover no-scrollbar absolute z-40 mt-1 max-h-64 w-full overflow-y-auto rounded-md border shadow-md">
+                                  {getFilteredChannels(`log:${target.key}`).map((channel) => (
+                                    <button
+                                      key={channel.id}
+                                      type="button"
+                                      className="hover:bg-accent block w-full px-3 py-2 text-left text-sm"
+                                      onMouseDown={(event) => {
+                                        event.preventDefault();
+                                        selectChannel(`log:${target.key}`, channel, (channelId) =>
+                                          setLogChannelTargets((current) => ({
+                                            ...current,
+                                            [target.key]: channelId
+                                          }))
+                                        );
+                                      }}>
+                                      #{channel.name}
+                                    </button>
+                                  ))}
+                                  {getFilteredChannels(`log:${target.key}`).length === 0 && (
+                                    <div className="text-muted-foreground px-3 py-2 text-sm">找不到符合的頻道</div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ))}
-                      </div>
-                      <div className="mt-4 flex justify-end">
-                        <Button className="px-6" onClick={handleSaveLogChannels} disabled={isSavingLogChannels}>
-                          {isSavingLogChannels ? "儲存中..." : "儲存頻道設定"}
-                        </Button>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 gap-4 pt-4 xl:grid-cols-2">
@@ -1551,8 +1681,11 @@ export default function Page() {
                       ))}
                     </div>
                     <div className="flex justify-end pt-2">
-                      <Button className="px-6" onClick={handleSaveLogSettings} disabled={isSavingLogSettings}>
-                        {isSavingLogSettings ? "儲存中..." : "儲存所有設定"}
+                      <Button
+                        className="px-6"
+                        onClick={handleSaveLogConfig}
+                        disabled={isSavingLogConfig || !isLogChannelSelectionValid}>
+                        {isSavingLogConfig ? "儲存中..." : "儲存 Log 設定"}
                       </Button>
                     </div>
                   </div>
@@ -1569,23 +1702,60 @@ export default function Page() {
                       <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div className="space-y-2">
                           <p className="text-muted-foreground text-sm">通知頻道</p>
-                          <Select
-                            value={twitchNotificationChannel || "__none__"}
-                            onValueChange={(value) =>
-                              setTwitchNotificationChannel(value === "__none__" ? "" : value)
-                            }>
-                            <SelectTrigger className="!h-11 !w-full rounded-lg bg-background/40 text-sm">
-                              <SelectValue placeholder="請選擇頻道" />
-                            </SelectTrigger>
-                            <SelectContent position="popper" side="bottom" align="start" sideOffset={6}>
-                              <SelectItem value="__none__">不使用</SelectItem>
-                              {serverChannels.map((channel) => (
-                                <SelectItem key={channel.id} value={channel.id}>
-                                  #{channel.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="relative">
+                            <Input
+                              className="!h-11 w-full rounded-lg bg-background/40 text-sm"
+                              value={getChannelInputValue("twitch:notification", twitchNotificationChannel)}
+                              placeholder="輸入頻道名稱篩選"
+                              onFocus={() =>
+                                setShowChannelSuggestions((current) => ({
+                                  ...current,
+                                  "twitch:notification": true
+                                }))
+                              }
+                              onBlur={() => {
+                                window.setTimeout(
+                                  () =>
+                                    setShowChannelSuggestions((current) => ({
+                                      ...current,
+                                      "twitch:notification": false
+                                    })),
+                                  120
+                                );
+                              }}
+                              onChange={(event) => {
+                                const value = event.target.value;
+                                setChannelQueries((current) => ({
+                                  ...current,
+                                  "twitch:notification": value
+                                }));
+                                setTwitchNotificationChannel("");
+                                setShowChannelSuggestions((current) => ({
+                                  ...current,
+                                  "twitch:notification": true
+                                }));
+                              }}
+                            />
+                            {showChannelSuggestions["twitch:notification"] && (
+                              <div className="bg-popover no-scrollbar absolute z-40 mt-1 max-h-64 w-full overflow-y-auto rounded-md border shadow-md">
+                                {getFilteredChannels("twitch:notification").map((channel) => (
+                                  <button
+                                    key={channel.id}
+                                    type="button"
+                                    className="hover:bg-accent block w-full px-3 py-2 text-left text-sm"
+                                    onMouseDown={(event) => {
+                                      event.preventDefault();
+                                      selectChannel("twitch:notification", channel, setTwitchNotificationChannel);
+                                    }}>
+                                    #{channel.name}
+                                  </button>
+                                ))}
+                                {getFilteredChannels("twitch:notification").length === 0 && (
+                                  <div className="text-muted-foreground px-3 py-2 text-sm">找不到符合的頻道</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <p className="text-muted-foreground text-sm">通知訊息模板</p>
@@ -1657,7 +1827,10 @@ export default function Page() {
                       </div>
                     </div>
                     <div className="flex justify-end pt-2">
-                      <Button className="px-6" onClick={handleSaveTwitchSettings} disabled={isSavingTwitchSettings}>
+                      <Button
+                        className="px-6"
+                        onClick={handleSaveTwitchSettings}
+                        disabled={isSavingTwitchSettings || !isTwitchChannelSelectionValid}>
                         {isSavingTwitchSettings ? "儲存中..." : "儲存 Twitch 設定"}
                       </Button>
                     </div>
@@ -1675,23 +1848,60 @@ export default function Page() {
                       <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div className="space-y-2">
                           <p className="text-muted-foreground text-sm">通知頻道</p>
-                          <Select
-                            value={youtubeNotificationChannel || "__none__"}
-                            onValueChange={(value) =>
-                              setYouTubeNotificationChannel(value === "__none__" ? "" : value)
-                            }>
-                            <SelectTrigger className="!h-11 !w-full rounded-lg bg-background/40 text-sm">
-                              <SelectValue placeholder="請選擇頻道" />
-                            </SelectTrigger>
-                            <SelectContent position="popper" side="bottom" align="start" sideOffset={6}>
-                              <SelectItem value="__none__">不使用</SelectItem>
-                              {serverChannels.map((channel) => (
-                                <SelectItem key={channel.id} value={channel.id}>
-                                  #{channel.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="relative">
+                            <Input
+                              className="!h-11 w-full rounded-lg bg-background/40 text-sm"
+                              value={getChannelInputValue("youtube:notification", youtubeNotificationChannel)}
+                              placeholder="輸入頻道名稱篩選"
+                              onFocus={() =>
+                                setShowChannelSuggestions((current) => ({
+                                  ...current,
+                                  "youtube:notification": true
+                                }))
+                              }
+                              onBlur={() => {
+                                window.setTimeout(
+                                  () =>
+                                    setShowChannelSuggestions((current) => ({
+                                      ...current,
+                                      "youtube:notification": false
+                                    })),
+                                  120
+                                );
+                              }}
+                              onChange={(event) => {
+                                const value = event.target.value;
+                                setChannelQueries((current) => ({
+                                  ...current,
+                                  "youtube:notification": value
+                                }));
+                                setYouTubeNotificationChannel("");
+                                setShowChannelSuggestions((current) => ({
+                                  ...current,
+                                  "youtube:notification": true
+                                }));
+                              }}
+                            />
+                            {showChannelSuggestions["youtube:notification"] && (
+                              <div className="bg-popover no-scrollbar absolute z-40 mt-1 max-h-64 w-full overflow-y-auto rounded-md border shadow-md">
+                                {getFilteredChannels("youtube:notification").map((channel) => (
+                                  <button
+                                    key={channel.id}
+                                    type="button"
+                                    className="hover:bg-accent block w-full px-3 py-2 text-left text-sm"
+                                    onMouseDown={(event) => {
+                                      event.preventDefault();
+                                      selectChannel("youtube:notification", channel, setYouTubeNotificationChannel);
+                                    }}>
+                                    #{channel.name}
+                                  </button>
+                                ))}
+                                {getFilteredChannels("youtube:notification").length === 0 && (
+                                  <div className="text-muted-foreground px-3 py-2 text-sm">找不到符合的頻道</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <p className="text-muted-foreground text-sm">通知訊息模板</p>
@@ -1767,7 +1977,10 @@ export default function Page() {
                       </div>
                     </div>
                     <div className="flex justify-end pt-2">
-                      <Button className="px-6" onClick={handleSaveYouTubeSettings} disabled={isSavingYouTubeSettings}>
+                      <Button
+                        className="px-6"
+                        onClick={handleSaveYouTubeSettings}
+                        disabled={isSavingYouTubeSettings || !isYouTubeChannelSelectionValid}>
                         {isSavingYouTubeSettings ? "儲存中..." : "儲存 YouTube 設定"}
                       </Button>
                     </div>
