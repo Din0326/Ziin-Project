@@ -78,7 +78,7 @@ def _resolve_latest_tweet(handle: str) -> tuple[str, str, str] | None:
 
     url = f"{_TWITTERAPI_IO_BASE}/twitter/user/last_tweets"
     headers = {"x-api-key": _TWITTERAPI_IO_KEY}
-    params = {"userName": handle, "includeReplies": "false"}
+    params = {"userName": handle, "includeReplies": "true"}
 
     _debug_twitter(f"twitterapi request start handle={handle}")
     response = requests.get(url, headers=headers, params=params, timeout=30)
