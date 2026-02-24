@@ -5,7 +5,7 @@ import Database from "better-sqlite3";
 
 type GuildSettingsRecord = {
   Prefix?: string;
-  TimeZone?: string;
+  TimeZone?: string | null;
   Language?: string;
   GuildLogId?: string | null;
   MemberLogId?: string | null;
@@ -64,7 +64,7 @@ const getDb = () => {
 
 const DEFAULT_GUILD_SETTINGS = {
   Prefix: "z!",
-  TimeZone: "0",
+  TimeZone: null,
   Language: "English"
 } as const;
 

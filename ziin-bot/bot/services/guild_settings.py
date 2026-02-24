@@ -18,8 +18,15 @@ def _debug_gs(message: str) -> None:
         logger.info("[guild_settings] %s", message)
 
 
-def _normalize_timezone_value(value: Any, default: str = "0") -> str:
-    return str(parse_utc_offset_hours(value, default=int(default)))
+def _normalize_timezone_value(value: Any, default: str | None = None) -> str | None:
+    if value is None:
+        return default
+
+    raw = str(value).strip()
+    if not raw:
+        return default
+
+    return str(parse_utc_offset_hours(raw, default=0))
 
 
 def build_default_guild_info(guild: discord.Guild) -> Dict[str, Any]:
@@ -27,7 +34,7 @@ def build_default_guild_info(guild: discord.Guild) -> Dict[str, Any]:
         "Name": guild.name,
         "ID": guild.id,
         "Language": "English",
-        "TimeZone": "0",
+        "TimeZone": None,
         "Prefix": "z!",
         "admin_msg_id": None,
         "basic_msg_id": None,
@@ -49,17 +56,17 @@ def build_default_log_settings(guild: discord.Guild) -> Dict[str, Any]:
         "-Name": guild.name,
         "-ID": guild.id,
         "guildUpdate": "off",
-        "messageUpdate": "on",
-        "messageDelete": "on",
+        "messageUpdate": "off",
+        "messageDelete": "off",
         "RoleCreate": "off",
         "RoleDelete": "off",
         "RoleUpdate": "off",
-        "MemberUpdate": "on",
+        "MemberUpdate": "off",
         "MemberAdd": "off",
         "MemberKick": "off",
         "MemberUnban": "off",
         "MemberRemove": "off",
-        "MemberNickUpdate": "on",
+        "MemberNickUpdate": "off",
         "channelCreate": "off",
         "channelDelete": "off",
         "channelUpdate": "off",
@@ -86,7 +93,7 @@ def _row_to_guild_settings(row) -> Dict[str, Any]:
         "Name": row["name"] or "",
         "ID": int(row["server_id"]),
         "Language": row["language"] or "English",
-        "TimeZone": _normalize_timezone_value(row["timezone"], default="0"),
+        "TimeZone": _normalize_timezone_value(row["timezone"], default=None),
         "Prefix": row["prefix"] or "z!",
         "guild_log_id": int(row["guild_log_id"]) if row["guild_log_id"] else None,
         "member_log_id": int(row["member_log_id"]) if row["member_log_id"] else None,
@@ -115,7 +122,7 @@ def ensure_guild_defaults(guild: discord.Guild) -> Tuple[bool, bool]:
                 ignore_channels_json, updated_at
             ) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '[]', ?)
             """,
-            (server_id, guild.name, "z!", "English", "0", now_ts()),
+            (server_id, guild.name, "z!", "English", None, now_ts()),
         )
         info_created = True
     else:
@@ -191,7 +198,7 @@ def update_guild_settings(guild_id: int, fields: Dict[str, Any]) -> None:
         if key == "ignore_channel":
             value = json.dumps(value if isinstance(value, list) else [], ensure_ascii=False)
         if key == "TimeZone":
-            value = _normalize_timezone_value(value, default="0")
+            value = _normalize_timezone_value(value, default=None)
         updates.append(f"{column} = ?")
         params.append(str(value) if value is not None and column.endswith("_id") else value)
 
