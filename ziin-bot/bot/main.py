@@ -8,7 +8,6 @@ import discord
 from bot.config import BASE_DIR, load_settings
 from bot.core.errors import setup_error_handlers
 from bot.logging_conf import setup_logging
-from bot.services.channel_data import import_legacy_channeldata
 from bot.services.guild_settings import get_guild_settings
 from bot.services.storage import init_storage
 from discord.ext import commands
@@ -58,9 +57,6 @@ class ZiinBot(commands.Bot):
     async def setup_hook(self) -> None:
         # Local SQLite DB init
         init_storage(self.settings.local_db_path)
-        imported = import_legacy_channeldata(BASE_DIR / "channeldata.json")
-        if imported:
-            log.info("Imported %d legacy channeldata records into SQLite.", imported)
 
         # Load cogs
         for ext in iter_cog_extensions():

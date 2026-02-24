@@ -1,11 +1,20 @@
-﻿import re
+import re
 import typing
 
 import requests
 from bot.core.classed import Cog_Extension
-from bot.services.channel_data import get_channel_data, save_channel_data
+from bot.services.channel_data import get_youtube_data, save_youtube_data
 from discord.ext import commands, tasks
 from discord.ext.commands import has_permissions
+
+
+def _append_unique_id(bucket: list[str], value: str) -> bool:
+    if not isinstance(value, str) or not value:
+        return False
+    if value in bucket:
+        return False
+    bucket.append(value)
+    return True
 
 
 def yt_short_check(ytber: str, guild_data: dict):
@@ -18,9 +27,15 @@ def yt_short_check(ytber: str, guild_data: dict):
 
     short_id = re.search(r'(?<={"videoId":").*?(?=",)', info).group()
     channel_name = re.search(r'(?<="channelMetadataRenderer":{"title":").*?(?=",)', info).group()
-    guild_data["yt_youtuber"][ytber]["name"] = channel_name
-    if short_id != guild_data["yt_youtuber"][ytber]["shortId"]:
-        guild_data["yt_youtuber"][ytber]["shortId"] = short_id
+    target = guild_data["yt_youtuber"][ytber]
+    target["name"] = channel_name
+    target["shortId"] = short_id
+    short_history = target.setdefault("shortHistory", [])
+    if not isinstance(short_history, list):
+        short_history = []
+        target["shortHistory"] = short_history
+    is_new = _append_unique_id(short_history, short_id)
+    if is_new:
         return short_id, channel_name
     return False, False
 
@@ -35,9 +50,15 @@ def yt_video_check(ytber: str, guild_data: dict):
 
     video_id = re.search(r'(?<={"videoId":").*?(?=",)', info).group()
     channel_name = re.search(r'(?<="channelMetadataRenderer":{"title":").*?(?=",)', info).group()
-    guild_data["yt_youtuber"][ytber]["name"] = channel_name
-    if video_id != guild_data["yt_youtuber"][ytber]["videoId"]:
-        guild_data["yt_youtuber"][ytber]["videoId"] = video_id
+    target = guild_data["yt_youtuber"][ytber]
+    target["name"] = channel_name
+    target["videoId"] = video_id
+    video_history = target.setdefault("videoHistory", [])
+    if not isinstance(video_history, list):
+        video_history = []
+        target["videoHistory"] = video_history
+    is_new = _append_unique_id(video_history, video_id)
+    if is_new:
         return video_id, channel_name
     return False, False
 
@@ -50,7 +71,7 @@ class Youtube(Cog_Extension):
     @tasks.loop(seconds=300)
     async def check_video_youtube(self):
         for guild in self.bot.guilds:
-            guild_data = get_channel_data(guild.id)
+            guild_data = get_youtube_data(guild.id)
             try:
                 for ytber in list(guild_data["yt_youtuber"].keys()):
                     video_id, channel_name = yt_video_check(ytber, guild_data)
@@ -70,14 +91,14 @@ class Youtube(Cog_Extension):
                         channel = self.bot.get_channel(channel_id) if channel_id else None
                         if channel:
                             await channel.send(text)
-                save_channel_data(guild.id, guild_data)
+                save_youtube_data(guild.id, guild_data)
             except Exception:
                 pass
 
     @has_permissions(manage_guild=True)
     @commands.hybrid_command(with_app_command=True)
     async def youtubers(self, ctx: commands.Context, arg: str, youtuber: typing.Optional[str] = None):
-        c_data = get_channel_data(ctx.guild.id)
+        c_data = get_youtube_data(ctx.guild.id)
         if arg == "all":
             ytber_list = []
             for ytber in c_data["yt_youtuber"].keys():
@@ -114,29 +135,33 @@ class Youtube(Cog_Extension):
                             "videoId": video_id,
                             "streamId": video_id,
                             "shortId": video_id,
+                            "videoHistory": [video_id] if video_id else [],
+                            "streamHistory": [video_id] if video_id else [],
+                            "shortHistory": [video_id] if video_id else [],
                         }
-                        await ctx.send(f"撌脤???**{ytb_name}** Youtube?.")
+                        await ctx.send(f"å·²é???**{ytb_name}** Youtube?šçŸ¥.")
                     await load_msg.delete()
 
                 if arg == "del":
                     if youtuber in c_data["yt_youtuber"]:
                         ytb_name = c_data["yt_youtuber"][youtuber]["name"]
                         del c_data["yt_youtuber"][youtuber]
-                        await ctx.send(f"撌脤???**{ytb_name}** Youtube?.")
+                        await ctx.send(f"å·²é???**{ytb_name}** Youtube?šçŸ¥.")
                     await load_msg.delete()
 
-                save_channel_data(ctx.guild.id, c_data)
+                save_youtube_data(ctx.guild.id, c_data)
             else:
                 await ctx.send("pls input streamer id.\nexample: **!youtubers add din4ni**")
 
     @has_permissions(manage_guild=True)
     @commands.hybrid_command(with_app_command=True)
     async def youtube_text(self, ctx: commands.Context, *, text: str):
-        c_data = get_channel_data(ctx.guild.id)
+        c_data = get_youtube_data(ctx.guild.id)
         c_data["youtube_notification_text"] = f"{text}"
-        save_channel_data(ctx.guild.id, c_data)
+        save_youtube_data(ctx.guild.id, c_data)
         await ctx.send(f"youtube notification text\n```{text}```")
 
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Youtube(bot))
+

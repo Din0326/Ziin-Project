@@ -4,8 +4,9 @@ from datetime import datetime
 import discord
 import requests
 from bot.core.classed import Cog_Extension
-from bot.services.channel_data import (ensure_channel_data, get_channel_data,
-                                       save_channel_data)
+from bot.services.channel_data import (ensure_twitch_data, ensure_youtube_data,
+                                       get_twitch_data, save_twitch_data,
+                                       get_youtube_data, save_youtube_data)
 from discord.ext import commands, tasks
 from discord.ext.commands import has_permissions
 
@@ -83,7 +84,8 @@ class Twitch(Cog_Extension):
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):
-        ensure_channel_data(guild.id)
+        ensure_twitch_data(guild.id)
+        ensure_youtube_data(guild.id)
 
     @tasks.loop(seconds=30)
     async def check_online_twitch(self):
@@ -94,13 +96,13 @@ class Twitch(Cog_Extension):
             return
 
         for guild in self.bot.guilds:
-            guild_data = get_channel_data(guild.id)
+            guild_data = get_twitch_data(guild.id)
             for usr in list(guild_data["all_streamers"]):
                 try:
                     result = stream_check(usr, guild_data, client_id, access_token)
                 except Exception:
                     continue
-                save_channel_data(guild.id, guild_data)
+                save_twitch_data(guild.id, guild_data)
                 if not result:
                     continue
 
@@ -126,7 +128,7 @@ class Twitch(Cog_Extension):
     @has_permissions(manage_guild=True)
     @commands.hybrid_command(with_app_command=True)
     async def streamers(self, ctx: commands.Context, arg: str, streamer: typing.Optional[str] = None):
-        c_data = get_channel_data(ctx.guild.id)
+        c_data = get_twitch_data(ctx.guild.id)
         if arg == "online":
             await ctx.send(c_data["online_streamers"])
         if arg == "offline":
@@ -159,16 +161,16 @@ class Twitch(Cog_Extension):
                             c_data["offline_streamers"].remove(streamer)
                         await ctx.send(f"deleted {streamer} in streamers list.")
                         await load_msg.delete()
-                save_channel_data(ctx.guild.id, c_data)
+                save_twitch_data(ctx.guild.id, c_data)
             else:
                 await ctx.send("pls input streamer id.\nexample: **!streamers add din4ni**")
 
     @has_permissions(manage_guild=True)
     @commands.hybrid_command(with_app_command=True)
     async def twitch_text(self, ctx: commands.Context, *, text: str):
-        c_data = get_channel_data(ctx.guild.id)
+        c_data = get_twitch_data(ctx.guild.id)
         c_data["twitch_notification_text"] = f"{text}"
-        save_channel_data(ctx.guild.id, c_data)
+        save_twitch_data(ctx.guild.id, c_data)
         await ctx.send(f"twtich notification text\n```{text}```")
 
     @has_permissions(manage_guild=True)
@@ -178,9 +180,14 @@ class Twitch(Cog_Extension):
             await ctx.send("pls input platform(youtube/twitch)\nexample: !notify twitch #channel")
             return
         if channel is not None:
-            c_data = get_channel_data(ctx.guild.id)
-            c_data[f"{platform}_notification_channel"] = channel.id
-            save_channel_data(ctx.guild.id, c_data)
+            if platform == "twitch":
+                c_data = get_twitch_data(ctx.guild.id)
+                c_data["twitch_notification_channel"] = channel.id
+                save_twitch_data(ctx.guild.id, c_data)
+            elif platform == "youtube":
+                c_data = get_youtube_data(ctx.guild.id)
+                c_data["youtube_notification_channel"] = channel.id
+                save_youtube_data(ctx.guild.id, c_data)
             await ctx.send(f"{platform} notification channel setup to {channel.mention}")
         else:
             await ctx.send("pls mention a channel or give a channel id")
