@@ -45,9 +45,6 @@ def stream_check(usr: str, guild_data: dict, client_id: str, access_token: str):
         "Authorization": f"Bearer {access_token}",
     }
     try:
-        _debug_twitch(
-                f"{usr} -> checking-49"
-            )
         streams_response = requests.get(
             "https://api.twitch.tv/helix/streams?user_login=" + usr,
             headers=head,
@@ -56,9 +53,6 @@ def stream_check(usr: str, guild_data: dict, client_id: str, access_token: str):
         streams_response.raise_for_status()
         streams = streams_response.json().get("data", [])
     except Exception:
-        _debug_twitch(
-                f"{usr} -> checking-60"
-            )
         return None
 
     if streams and isinstance(streams[0], dict) and streams[0].get("type") == "live":
@@ -128,33 +122,18 @@ class Twitch(Cog_Extension):
         client_id = self.bot.settings.twitch_client_id
         client_secret = self.bot.settings.twitch_client_secret
         access_token = _fetch_access_token(client_id, client_secret)
-        _debug_twitch(
-                    f"check_online_twitch {access_token}"
-                )
         if not access_token:
-            _debug_twitch(  
-                    f"check_online_twitch not access_token"
-                )
             return
 
         for guild in self.bot.guilds:
             guild_data = get_twitch_data(guild.id)
-            _debug_twitch(
-                    f"check_online_twitch {guild_data}"
-                )
             for usr in list(guild_data["all_streamers"]):
                 try:
                     result = stream_check(usr, guild_data, client_id, access_token)
                 except Exception:
                     _debug_twitch(f"stream_check exception guild={guild.id} user={usr}")
                     continue
-                _debug_twitch(
-                    f"{usr} -> checking-143"
-                )
                 save_twitch_data(guild.id, guild_data)
-                _debug_twitch(
-                    f"{usr} -> checking-147"
-                )
                 _debug_twitch(
                     f"saved guild={guild.id} user={usr} | online={guild_data['online_streamers']} | offline={guild_data['offline_streamers']}"
                 )
