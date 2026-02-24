@@ -131,11 +131,20 @@ class Twitch(Cog_Extension):
         client_id = self.bot.settings.twitch_client_id
         client_secret = self.bot.settings.twitch_client_secret
         access_token = _fetch_access_token(client_id, client_secret)
+        _debug_twitch(
+                    f"check_online_twitch {access_token}"
+                )
         if not access_token:
+            _debug_twitch(
+                    f"check_online_twitch not access_token"
+                )
             return
 
         for guild in self.bot.guilds:
             guild_data = get_twitch_data(guild.id)
+            _debug_twitch(
+                    f"check_online_twitch {guild_data}"
+                )
             for usr in list(guild_data["all_streamers"]):
                 try:
                     result = stream_check(usr, guild_data, client_id, access_token)
