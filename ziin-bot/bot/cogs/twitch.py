@@ -125,6 +125,9 @@ class Twitch(Cog_Extension):
 
     @tasks.loop(seconds=30)
     async def check_online_twitch(self):
+        _debug_twitch(
+                    f"check_online_twitch loop"
+                )
         client_id = self.bot.settings.twitch_client_id
         client_secret = self.bot.settings.twitch_client_secret
         access_token = _fetch_access_token(client_id, client_secret)
