@@ -960,7 +960,7 @@ export default function Page() {
                 Ziin 尚未加入 {botInviteServerName} ，請先邀請機器人再進行設定。
               </p>
               <div className="mt-7 flex items-center justify-center gap-3">
-                <a href={botInviteUrl} target="_blank" rel="noreferrer">
+                <a href={botInviteUrl}>
                   <Button className="h-12 px-8 text-base" disabled={!botInviteUrl}>
                     邀請機器人
                   </Button>
