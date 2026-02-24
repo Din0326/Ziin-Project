@@ -3,10 +3,43 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { fetchDiscordGuilds, hasManagePermission } from "@/lib/discord-guilds";
 
-const buildInviteUrl = (serverId: string) => {
+let cachedBotClientId: string | null = null;
+
+const resolveBotClientId = async (botToken: string): Promise<string | null> => {
+  const fromEnv =
+    process.env.DISCORD_BOT_ID ?? process.env.DISCORD_APPLICATION_ID ?? process.env.DISCORD_CLIENT_ID ?? null;
+  if (fromEnv) {
+    return fromEnv;
+  }
+  if (cachedBotClientId) {
+    return cachedBotClientId;
+  }
+
+  try {
+    const response = await fetch("https://discord.com/api/v10/users/@me", {
+      headers: { Authorization: `Bot ${botToken}` },
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = (await response.json()) as { id?: unknown };
+    if (typeof data.id === "string" && data.id) {
+      cachedBotClientId = data.id;
+      return data.id;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+};
+
+const buildInviteUrl = (serverId: string, clientId: string) => {
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://3.137.160.188:6001";
   const params = new URLSearchParams({
-    client_id: process.env.DISCORD_CLIENT_ID ?? "1474006747969617996",
+    client_id: clientId,
     permissions: "8",
     response_type: "code",
     redirect_uri: `${baseUrl}/api/auth/callback/discord`,
@@ -41,6 +74,10 @@ export async function GET(_: NextRequest, context: { params: Promise<{ serverId:
   if (!botToken) {
     return NextResponse.json({ message: "Bot token missing" }, { status: 500 });
   }
+  const botClientId = await resolveBotClientId(botToken);
+  if (!botClientId) {
+    return NextResponse.json({ message: "Bot client id missing" }, { status: 500 });
+  }
 
   const response = await fetch(`https://discord.com/api/v10/guilds/${serverId}`, {
     headers: {
@@ -52,7 +89,6 @@ export async function GET(_: NextRequest, context: { params: Promise<{ serverId:
   const inGuild = response.ok;
   return NextResponse.json({
     inGuild,
-    inviteUrl: buildInviteUrl(serverId)
+    inviteUrl: buildInviteUrl(serverId, botClientId)
   });
 }
-
