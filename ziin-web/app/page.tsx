@@ -725,7 +725,10 @@ export default function Page() {
         body: JSON.stringify({
           twitterNotificationChannel: twitterNotificationChannel || null,
           twitterNotificationText,
-          xusers: twitterAccounts
+          xusers: twitterAccounts.map((item) => ({
+            ...item,
+            name: resolvedProfileNames[`twitter:${item.id}`] ?? item.name
+          }))
         })
       });
 
@@ -885,6 +888,7 @@ export default function Page() {
   const [avatarFallbacks, setAvatarFallbacks] = React.useState<Record<string, boolean>>({});
   const [resolvedAvatars, setResolvedAvatars] = React.useState<Record<string, string>>({});
   const [resolvedProfileNames, setResolvedProfileNames] = React.useState<Record<string, string>>({});
+  const [resolvedTwitterHandles, setResolvedTwitterHandles] = React.useState<Record<string, string>>({});
   const isServerSettingsDirty = React.useMemo(
     () =>
       prefixInput.trim() !== savedServerSettings.prefix ||
@@ -1480,6 +1484,39 @@ export default function Page() {
       void resolveAvatar("youtube", subscription.id);
     });
   }, [avatarFallbacks, resolvedAvatars, twitchStreamers, youtubeSubscriptions]);
+
+  React.useEffect(() => {
+    const resolveTwitterProfile = async (id: string) => {
+      const key = `twitter:${id}`;
+      if (resolvedProfileNames[key] && resolvedTwitterHandles[key]) {
+        return;
+      }
+      try {
+        const response = await fetch(`/api/twitter-profile?handle=${encodeURIComponent(id)}`, { method: "GET" });
+        if (!response.ok) {
+          return;
+        }
+        const result = (await response.json()) as { profileName?: unknown; handle?: unknown };
+        const profileName = typeof result.profileName === "string" ? result.profileName.trim() : "";
+        if (profileName) {
+          setResolvedProfileNames((current) => ({ ...current, [key]: profileName }));
+          setTwitterAccounts((current) =>
+            current.map((item) => (item.id === id && item.name !== profileName ? { ...item, name: profileName } : item))
+          );
+        }
+        const twitterHandle = typeof result.handle === "string" ? result.handle.trim() : "";
+        if (twitterHandle) {
+          setResolvedTwitterHandles((current) => ({ ...current, [key]: twitterHandle }));
+        }
+      } catch {
+        // no-op: keep fallback display
+      }
+    };
+
+    twitterAccounts.forEach((account) => {
+      void resolveTwitterProfile(account.id);
+    });
+  }, [resolvedProfileNames, resolvedTwitterHandles, twitterAccounts]);
 
   return (
     <SidebarProvider
@@ -2139,11 +2176,17 @@ export default function Page() {
                           <div key={account.id} className="flex items-center justify-between rounded-md border px-3 py-2">
                             <div className="flex items-center gap-2">
                               <div className="bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold">
-                                {account.id.slice(0, 1).toUpperCase()}
+                                {(resolvedTwitterHandles[`twitter:${account.id}`] || account.id)
+                                  .slice(0, 1)
+                                  .toUpperCase()}
                               </div>
                               <div>
-                                <p className="text-sm font-semibold">{account.name || account.id}</p>
-                                <p className="text-muted-foreground text-xs">@{account.id}</p>
+                                <p className="text-sm font-semibold">
+                                  {resolvedProfileNames[`twitter:${account.id}`] || account.name || account.id}
+                                </p>
+                                <p className="text-muted-foreground text-xs">
+                                  @{resolvedTwitterHandles[`twitter:${account.id}`] || account.id}
+                                </p>
                               </div>
                             </div>
                             <Button
