@@ -138,7 +138,7 @@ class Twitter(Cog_Extension):
     async def on_guild_join(self, guild: discord.Guild):
         ensure_twitter_data(guild.id)
 
-    @tasks.loop(seconds=60)
+    @tasks.loop(seconds=600)
     async def check_twitter_posts(self):
         for guild in self.bot.guilds:
             guild_data = get_twitter_data(guild.id)
