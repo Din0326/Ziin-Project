@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import traceback
 import typing
 
 import discord
@@ -76,10 +77,13 @@ class Twitter(Cog_Extension):
 
     async def _get_guest_client(self) -> GuestClient:
         if self._guest is None:
+            _debug_twitter("guest client create")
             self._guest = GuestClient()
         if not self._guest_ready:
+            _debug_twitter("guest client activate start")
             await self._guest.activate()
             self._guest_ready = True
+            _debug_twitter("guest client activate ok")
         return self._guest
 
     async def _resolve_latest_tweet(self, handle: str) -> tuple[str, str, str] | None:
@@ -182,6 +186,8 @@ class Twitter(Cog_Extension):
                     latest = await self._resolve_latest_tweet(handle)
                 except Exception as exc:
                     _debug_twitter(f"fetch failed guild={guild.id} handle={handle} error={exc}")
+                    if _DEBUG_TWITTER:
+                        _debug_twitter(f"fetch traceback guild={guild.id} handle={handle}\n{traceback.format_exc()}")
                     self._guest_ready = False
                     continue
 
