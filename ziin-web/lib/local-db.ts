@@ -39,6 +39,19 @@ type YouTubeSettingsRecord = {
   YouTubers: YouTubeSubscriptionRecord[];
 };
 
+type TwitterSubscriptionRecord = {
+  id: string;
+  name: string;
+  tweetId: string;
+  tweetHistory: string[];
+};
+
+type TwitterSettingsRecord = {
+  TwitterNotificationChannel: string | null;
+  TwitterNotificationText: string;
+  XUsers: TwitterSubscriptionRecord[];
+};
+
 let cachedDb: Database.Database | null = null;
 
 const getDbPath = () =>
@@ -93,6 +106,7 @@ const DEFAULT_LOG_SETTINGS: Array<{ fieldName: string; enabled: boolean }> = [
 
 const DEFAULT_TWITCH_NOTIFICATION_TEXT = "**{streamer}** is live now!!\n**{url}**";
 const DEFAULT_YOUTUBE_NOTIFICATION_TEXT = "**{ytber}** upload a video!!\n**{url}**";
+const DEFAULT_TWITTER_NOTIFICATION_TEXT = "**{xuser}** posted a new tweet!\n**{url}**";
 
 const nowTs = () => Math.floor(Date.now() / 1000);
 
@@ -178,9 +192,28 @@ const ensureNotificationTables = (db: Database.Database) => {
       PRIMARY KEY (server_id, youtuber_id)
     );
 
+    CREATE TABLE IF NOT EXISTS twitter_data (
+      server_id TEXT PRIMARY KEY,
+      twitter_notification_text TEXT NOT NULL DEFAULT '**{xuser}** posted a new tweet!\\n**{url}**',
+      twitter_notification_channel TEXT,
+      updated_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS twitter_subscriptions (
+      server_id TEXT NOT NULL,
+      account_id TEXT NOT NULL,
+      display_name TEXT,
+      tweet_id TEXT,
+      tweet_history TEXT NOT NULL DEFAULT '[]',
+      updated_at INTEGER,
+      PRIMARY KEY (server_id, account_id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_twitch_data_server_id ON twitch_data(server_id);
     CREATE INDEX IF NOT EXISTS idx_youtube_data_server_id ON youtube_data(server_id);
     CREATE INDEX IF NOT EXISTS idx_youtube_subscriptions_server_id ON youtube_subscriptions(server_id);
+    CREATE INDEX IF NOT EXISTS idx_twitter_data_server_id ON twitter_data(server_id);
+    CREATE INDEX IF NOT EXISTS idx_twitter_subscriptions_server_id ON twitter_subscriptions(server_id);
   `);
 
   const columns = db
@@ -195,6 +228,14 @@ const ensureNotificationTables = (db: Database.Database) => {
   }
   if (!names.has("short_history")) {
     db.exec("ALTER TABLE youtube_subscriptions ADD COLUMN short_history TEXT NOT NULL DEFAULT '[]'");
+  }
+
+  const twitterColumns = db
+    .prepare("PRAGMA table_info(twitter_subscriptions)")
+    .all() as Array<{ name: string }>;
+  const twitterNames = new Set(twitterColumns.map((column) => column.name));
+  if (!twitterNames.has("tweet_history")) {
+    db.exec("ALTER TABLE twitter_subscriptions ADD COLUMN tweet_history TEXT NOT NULL DEFAULT '[]'");
   }
 };
 
@@ -390,6 +431,22 @@ const ensureYouTubeSettingsDefaults = (db: Database.Database, serverId: string) 
       ON CONFLICT(server_id) DO NOTHING
     `
   ).run(serverId, DEFAULT_YOUTUBE_NOTIFICATION_TEXT, ts);
+};
+
+const ensureTwitterSettingsDefaults = (db: Database.Database, serverId: string) => {
+  const ts = nowTs();
+  db.prepare(
+    `
+      INSERT INTO twitter_data (
+        server_id,
+        twitter_notification_text,
+        twitter_notification_channel,
+        updated_at
+      )
+      VALUES (?, ?, NULL, ?)
+      ON CONFLICT(server_id) DO NOTHING
+    `
+  ).run(serverId, DEFAULT_TWITTER_NOTIFICATION_TEXT, ts);
 };
 
 const normalizeYouTubeSubscriptions = (values: unknown): YouTubeSubscriptionRecord[] => {
@@ -661,6 +718,156 @@ export const upsertYouTubeSettings = async (
           JSON.stringify(item.videoHistory),
           JSON.stringify(item.streamHistory),
           JSON.stringify(item.shortHistory),
+          ts
+        );
+      }
+    });
+    transaction();
+  }
+};
+
+const normalizeTwitterSubscriptions = (values: unknown): TwitterSubscriptionRecord[] => {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+
+  const result: TwitterSubscriptionRecord[] = [];
+  const seen = new Set<string>();
+
+  for (const value of values) {
+    if (typeof value !== "object" || value === null) {
+      continue;
+    }
+    const record = value as Record<string, unknown>;
+    const id = typeof record.id === "string" ? record.id.trim().toLowerCase().replace(/^@+/, "") : "";
+    if (!id || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+
+    const name = typeof record.name === "string" && record.name.trim() ? record.name.trim() : id;
+    const tweetId = typeof record.tweetId === "string" ? record.tweetId.trim() : "";
+    const tweetHistory = normalizeStringList(record.tweetHistory);
+    if (tweetId && !tweetHistory.includes(tweetId)) {
+      tweetHistory.push(tweetId);
+    }
+    result.push({ id, name, tweetId, tweetHistory });
+  }
+
+  return result;
+};
+
+export const getTwitterSettings = async (serverId: string): Promise<TwitterSettingsRecord> => {
+  const db = getDb();
+  ensureTwitterSettingsDefaults(db, serverId);
+
+  const row = db
+    .prepare(
+      `
+        SELECT
+          twitter_notification_text,
+          twitter_notification_channel
+        FROM twitter_data
+        WHERE server_id = ?
+      `
+    )
+    .get(serverId) as
+    | {
+        twitter_notification_text: string | null;
+        twitter_notification_channel: string | null;
+      }
+    | undefined;
+
+  const xusers = db
+    .prepare(
+      `
+        SELECT
+          account_id,
+          display_name,
+          tweet_id,
+          tweet_history
+        FROM twitter_subscriptions
+        WHERE server_id = ?
+      `
+    )
+    .all(serverId) as Array<{
+    account_id: string;
+    display_name: string | null;
+    tweet_id: string | null;
+    tweet_history: string | null;
+  }>;
+
+  return {
+    TwitterNotificationChannel: row?.twitter_notification_channel ?? null,
+    TwitterNotificationText: row?.twitter_notification_text ?? DEFAULT_TWITTER_NOTIFICATION_TEXT,
+    XUsers: xusers.map((item) => {
+      const id = item.account_id.trim().toLowerCase().replace(/^@+/, "");
+      const tweetHistory = parseJsonArray(item.tweet_history);
+      const tweetId = item.tweet_id ?? "";
+      if (tweetId && !tweetHistory.includes(tweetId)) {
+        tweetHistory.push(tweetId);
+      }
+      return {
+        id,
+        name: item.display_name?.trim() || id,
+        tweetId,
+        tweetHistory
+      };
+    })
+  };
+};
+
+export const upsertTwitterSettings = async (
+  serverId: string,
+  partial: Partial<TwitterSettingsRecord>
+) => {
+  const db = getDb();
+  ensureTwitterSettingsDefaults(db, serverId);
+  const ts = nowTs();
+
+  const updates: string[] = [];
+  const values: unknown[] = [];
+
+  if (partial.TwitterNotificationText !== undefined) {
+    updates.push("twitter_notification_text = ?");
+    values.push(partial.TwitterNotificationText.trim() || DEFAULT_TWITTER_NOTIFICATION_TEXT);
+  }
+  if (partial.TwitterNotificationChannel !== undefined) {
+    updates.push("twitter_notification_channel = ?");
+    values.push(normalizeChannelId(partial.TwitterNotificationChannel));
+  }
+
+  if (updates.length > 0) {
+    updates.push("updated_at = ?");
+    values.push(ts);
+    db.prepare(`UPDATE twitter_data SET ${updates.join(", ")} WHERE server_id = ?`).run(...values, serverId);
+  }
+
+  if (partial.XUsers !== undefined) {
+    const normalized = normalizeTwitterSubscriptions(partial.XUsers);
+    const insertStatement = db.prepare(
+      `
+        INSERT INTO twitter_subscriptions (
+          server_id,
+          account_id,
+          display_name,
+          tweet_id,
+          tweet_history,
+          updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+      `
+    );
+
+    const transaction = db.transaction(() => {
+      db.prepare("DELETE FROM twitter_subscriptions WHERE server_id = ?").run(serverId);
+      for (const item of normalized) {
+        insertStatement.run(
+          serverId,
+          item.id,
+          item.name,
+          item.tweetId,
+          JSON.stringify(item.tweetHistory),
           ts
         );
       }

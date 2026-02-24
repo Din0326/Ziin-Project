@@ -7,6 +7,7 @@ from bot.services.storage import execute, fetchall, fetchone, now_ts
 
 DEFAULT_TWITCH_TEXT = "**{streamer}** is live now!!\n**{url}**"
 DEFAULT_YOUTUBE_TEXT = "**{ytber}** upload a video!!\n**{url}**"
+DEFAULT_TWITTER_TEXT = "**{xuser}** posted a new tweet!\n**{url}**"
 _SCHEMA_READY = False
 
 
@@ -27,6 +28,15 @@ def build_default_youtube_data(guild_id: int) -> Dict[str, Any]:
         "yt_youtuber": {},
         "youtube_notification_text": DEFAULT_YOUTUBE_TEXT,
         "youtube_notification_channel": None,
+    }
+
+
+def build_default_twitter_data(guild_id: int) -> Dict[str, Any]:
+    return {
+        "id": guild_id,
+        "twitter_accounts": {},
+        "twitter_notification_text": DEFAULT_TWITTER_TEXT,
+        "twitter_notification_channel": None,
     }
 
 
@@ -140,6 +150,52 @@ def _normalize_youtube_data(guild_id: int, data: Dict[str, Any]) -> Dict[str, An
     return normalized
 
 
+def _normalize_twitter_subscriptions(raw: Any) -> Dict[str, Dict[str, Any]]:
+    if not isinstance(raw, dict):
+        return {}
+
+    normalized: Dict[str, Dict[str, Any]] = {}
+    for account_id, value in raw.items():
+        if not isinstance(account_id, str) or not account_id:
+            continue
+
+        item = value if isinstance(value, dict) else {}
+        account = account_id.strip().lower().lstrip("@")
+        if not account:
+            continue
+
+        name = item.get("name") if isinstance(item.get("name"), str) else account
+        tweet_id = item.get("tweetId") if isinstance(item.get("tweetId"), str) else ""
+        tweet_history = _normalize_id_history(item.get("tweetHistory"))
+        if tweet_id and tweet_id not in tweet_history:
+            tweet_history.append(tweet_id)
+
+        normalized[account] = {
+            "id": account,
+            "name": name,
+            "tweetId": tweet_id,
+            "tweetHistory": tweet_history,
+        }
+
+    return normalized
+
+
+def _normalize_twitter_data(guild_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    default = build_default_twitter_data(guild_id)
+    normalized = dict(default)
+    normalized.update(data)
+
+    normalized["twitter_accounts"] = _normalize_twitter_subscriptions(normalized.get("twitter_accounts"))
+    if not isinstance(normalized.get("twitter_notification_text"), str):
+        normalized["twitter_notification_text"] = DEFAULT_TWITTER_TEXT
+
+    channel_id = normalized.get("twitter_notification_channel")
+    if channel_id in ("", 0, "0"):
+        normalized["twitter_notification_channel"] = None
+
+    return normalized
+
+
 def _table_columns(table: str) -> set[str]:
     return {str(row["name"]) for row in fetchall(f"PRAGMA table_info({table})")}
 
@@ -169,6 +225,25 @@ def _ensure_youtube_subscriptions_schema() -> None:
         execute("ALTER TABLE youtube_subscriptions ADD COLUMN stream_history TEXT NOT NULL DEFAULT '[]'")
     if "short_history" not in columns:
         execute("ALTER TABLE youtube_subscriptions ADD COLUMN short_history TEXT NOT NULL DEFAULT '[]'")
+
+
+def _ensure_twitter_subscriptions_schema() -> None:
+    execute(
+        """
+        CREATE TABLE IF NOT EXISTS twitter_subscriptions (
+          server_id TEXT NOT NULL,
+          account_id TEXT NOT NULL,
+          display_name TEXT,
+          tweet_id TEXT,
+          tweet_history TEXT NOT NULL DEFAULT '[]',
+          updated_at INTEGER,
+          PRIMARY KEY (server_id, account_id)
+        )
+        """
+    )
+    columns = _table_columns("twitter_subscriptions")
+    if "tweet_history" not in columns:
+        execute("ALTER TABLE twitter_subscriptions ADD COLUMN tweet_history TEXT NOT NULL DEFAULT '[]'")
 
 
 def _ensure_twitch_table_schema() -> None:
@@ -297,6 +372,32 @@ def _replace_youtube_subscriptions(server_id: str, items: Dict[str, Dict[str, An
         )
 
 
+def _replace_twitter_subscriptions(server_id: str, items: Dict[str, Dict[str, Any]], updated_at: int) -> None:
+    execute("DELETE FROM twitter_subscriptions WHERE server_id = ?", (server_id,))
+    for account_id, item in items.items():
+        execute(
+            """
+            INSERT INTO twitter_subscriptions (
+              server_id,
+              account_id,
+              display_name,
+              tweet_id,
+              tweet_history,
+              updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                server_id,
+                account_id,
+                item.get("name"),
+                item.get("tweetId"),
+                json.dumps(_normalize_id_history(item.get("tweetHistory")), ensure_ascii=False),
+                updated_at,
+            ),
+        )
+
+
 def _ensure_youtube_table_schema() -> None:
     _ensure_youtube_subscriptions_schema()
 
@@ -384,6 +485,33 @@ def _ensure_youtube_table_schema() -> None:
         _replace_youtube_subscriptions(server_id, normalized["yt_youtuber"], stamp)
 
 
+def _ensure_twitter_table_schema() -> None:
+    _ensure_twitter_subscriptions_schema()
+
+    required = {
+        "server_id",
+        "twitter_notification_text",
+        "twitter_notification_channel",
+        "updated_at",
+    }
+    columns = _table_columns("twitter_data")
+
+    if required.issubset(columns):
+        return
+
+    execute("DROP TABLE IF EXISTS twitter_data")
+    execute(
+        """
+        CREATE TABLE IF NOT EXISTS twitter_data (
+          server_id TEXT PRIMARY KEY,
+          twitter_notification_text TEXT NOT NULL DEFAULT '**{xuser}** posted a new tweet!\n**{url}**',
+          twitter_notification_channel TEXT,
+          updated_at INTEGER
+        )
+        """
+    )
+
+
 def _ensure_split_tables_schema() -> None:
     global _SCHEMA_READY
     if _SCHEMA_READY:
@@ -391,6 +519,7 @@ def _ensure_split_tables_schema() -> None:
 
     _ensure_twitch_table_schema()
     _ensure_youtube_table_schema()
+    _ensure_twitter_table_schema()
     _SCHEMA_READY = True
 
 
@@ -451,6 +580,44 @@ def _row_to_youtube_data(guild_id: int, row: Any, subscriptions: Dict[str, Dict[
     return _normalize_youtube_data(guild_id, raw)
 
 
+def _load_twitter_subscriptions(server_id: str) -> Dict[str, Dict[str, Any]]:
+    rows = fetchall(
+        """
+        SELECT
+          account_id,
+          display_name,
+          tweet_id,
+          tweet_history
+        FROM twitter_subscriptions
+        WHERE server_id = ?
+        """,
+        (server_id,),
+    )
+
+    items: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        account_id = str(row["account_id"]).strip().lower().lstrip("@")
+        if not account_id:
+            continue
+        items[account_id] = {
+            "id": account_id,
+            "name": row["display_name"] if isinstance(row["display_name"], str) else account_id,
+            "tweetId": row["tweet_id"] if isinstance(row["tweet_id"], str) else "",
+            "tweetHistory": _normalize_id_history(_parse_json_value(row["tweet_history"], [])),
+        }
+    return items
+
+
+def _row_to_twitter_data(guild_id: int, row: Any, subscriptions: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    raw = {
+        "id": guild_id,
+        "twitter_accounts": subscriptions,
+        "twitter_notification_text": row["twitter_notification_text"],
+        "twitter_notification_channel": row["twitter_notification_channel"],
+    }
+    return _normalize_twitter_data(guild_id, raw)
+
+
 def ensure_twitch_data(guild_id: int) -> Dict[str, Any]:
     _ensure_split_tables_schema()
     row = fetchone(
@@ -493,12 +660,36 @@ def ensure_youtube_data(guild_id: int) -> Dict[str, Any]:
     return _row_to_youtube_data(guild_id, row, _load_youtube_subscriptions(server_id))
 
 
+def ensure_twitter_data(guild_id: int) -> Dict[str, Any]:
+    _ensure_split_tables_schema()
+    server_id = str(guild_id)
+    row = fetchone(
+        """
+        SELECT
+          twitter_notification_text,
+          twitter_notification_channel
+        FROM twitter_data
+        WHERE server_id = ?
+        """,
+        (server_id,),
+    )
+    if row is None:
+        payload = build_default_twitter_data(guild_id)
+        return save_twitter_data(guild_id, payload)
+
+    return _row_to_twitter_data(guild_id, row, _load_twitter_subscriptions(server_id))
+
+
 def get_twitch_data(guild_id: int) -> Dict[str, Any]:
     return ensure_twitch_data(guild_id)
 
 
 def get_youtube_data(guild_id: int) -> Dict[str, Any]:
     return ensure_youtube_data(guild_id)
+
+
+def get_twitter_data(guild_id: int) -> Dict[str, Any]:
+    return ensure_twitter_data(guild_id)
 
 
 def save_twitch_data(guild_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -568,4 +759,37 @@ def save_youtube_data(guild_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     _replace_youtube_subscriptions(server_id, normalized["yt_youtuber"], stamp)
+    return normalized
+
+
+def save_twitter_data(guild_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
+    _ensure_split_tables_schema()
+    normalized = _normalize_twitter_data(guild_id, payload)
+    stamp = now_ts()
+    server_id = str(guild_id)
+
+    execute(
+        """
+        INSERT INTO twitter_data (
+          server_id,
+          twitter_notification_text,
+          twitter_notification_channel,
+          updated_at
+        )
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(server_id)
+        DO UPDATE SET
+          twitter_notification_text = excluded.twitter_notification_text,
+          twitter_notification_channel = excluded.twitter_notification_channel,
+          updated_at = excluded.updated_at
+        """,
+        (
+            server_id,
+            normalized["twitter_notification_text"],
+            normalized["twitter_notification_channel"],
+            stamp,
+        ),
+    )
+
+    _replace_twitter_subscriptions(server_id, normalized["twitter_accounts"], stamp)
     return normalized

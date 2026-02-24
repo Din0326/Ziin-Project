@@ -4,6 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import {
   IconBrandTwitch,
+  IconBrandX,
   IconBrandYoutube,
   IconFileAnalytics,
   IconSettings
@@ -48,6 +49,11 @@ const data = {
       title: "YouTube",
       url: "#",
       icon: IconBrandYoutube
+    },
+    {
+      title: "Twitter",
+      url: "#",
+      icon: IconBrandX
     }
   ],
 };

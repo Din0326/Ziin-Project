@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchDiscordGuilds, hasManagePermission } from "@/lib/discord-guilds";
-import { getLogSettings, getServerSettings, getTwitchSettings, getYouTubeSettings } from "@/lib/local-db";
+import { getLogSettings, getServerSettings, getTwitchSettings, getTwitterSettings, getYouTubeSettings } from "@/lib/local-db";
 import { getDiscordAccessToken } from "@/lib/server-auth";
 
 type DiscordChannel = {
@@ -111,11 +111,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ser
     return NextResponse.json({ message: "Bot token missing" }, { status: 500 });
   }
 
-  const [serverSettings, logSettings, twitchSettings, youtubeSettings, channelsResponse, rolesResponse] =
+  const [serverSettings, logSettings, twitchSettings, twitterSettings, youtubeSettings, channelsResponse, rolesResponse] =
     await Promise.all([
       getServerSettings(serverId),
       getLogSettings(serverId),
       getTwitchSettings(serverId),
+      getTwitterSettings(serverId),
       getYouTubeSettings(serverId),
       fetch(`https://discord.com/api/v10/guilds/${serverId}/channels`, {
         headers: {
@@ -175,6 +176,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ser
         twitchNotificationChannel: twitchSettings.TwitchNotificationChannel,
         twitchNotificationText: twitchSettings.TwitchNotificationText,
         allStreamers: twitchSettings.AllStreamers
+      },
+      twitterSettings: {
+        twitterNotificationChannel: twitterSettings.TwitterNotificationChannel,
+        twitterNotificationText: twitterSettings.TwitterNotificationText,
+        xusers: twitterSettings.XUsers
       },
       youtubeSettings: {
         youtubeNotificationChannel: youtubeSettings.YouTubeNotificationChannel,

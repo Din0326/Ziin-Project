@@ -93,9 +93,30 @@ CREATE TABLE IF NOT EXISTS youtube_subscriptions (
   PRIMARY KEY (server_id, youtuber_id)
 );
 
+-- Per-guild Twitter(X) notification state.
+CREATE TABLE IF NOT EXISTS twitter_data (
+  server_id TEXT PRIMARY KEY,
+  twitter_notification_text TEXT NOT NULL DEFAULT '**{xuser}** posted a new tweet!\n**{url}**',
+  twitter_notification_channel TEXT,
+  updated_at INTEGER
+);
+
+-- Per-guild Twitter subscriptions (one row per account).
+CREATE TABLE IF NOT EXISTS twitter_subscriptions (
+  server_id TEXT NOT NULL,
+  account_id TEXT NOT NULL,
+  display_name TEXT,
+  tweet_id TEXT,
+  tweet_history TEXT NOT NULL DEFAULT '[]',
+  updated_at INTEGER,
+  PRIMARY KEY (server_id, account_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_log_settings_server_id ON log_settings(server_id);
 CREATE INDEX IF NOT EXISTS idx_user_guild_stats_server_id ON user_guild_stats(server_id);
 CREATE INDEX IF NOT EXISTS idx_user_voice_channel_stats_server_id ON user_voice_channel_stats(server_id);
 CREATE INDEX IF NOT EXISTS idx_twitch_data_server_id ON twitch_data(server_id);
 CREATE INDEX IF NOT EXISTS idx_youtube_data_server_id ON youtube_data(server_id);
 CREATE INDEX IF NOT EXISTS idx_youtube_subscriptions_server_id ON youtube_subscriptions(server_id);
+CREATE INDEX IF NOT EXISTS idx_twitter_data_server_id ON twitter_data(server_id);
+CREATE INDEX IF NOT EXISTS idx_twitter_subscriptions_server_id ON twitter_subscriptions(server_id);

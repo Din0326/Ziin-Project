@@ -4,6 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import {
   IconBrandTwitch,
+  IconBrandX,
   IconBrandYoutube,
   IconFileAnalytics,
   IconMoon,
@@ -44,6 +45,7 @@ const DEFAULT_LOG_SETTINGS: Record<string, boolean> = {
 const UNAVAILABLE_LOG_SETTING_KEYS = new Set(["messageDeleteBulk"]);
 const DEFAULT_TWITCH_NOTIFICATION_TEXT = "**{streamer}** is live now!!\n**{url}**";
 const DEFAULT_YOUTUBE_NOTIFICATION_TEXT = "**{ytber}** upload a video!!\n**{url}**";
+const DEFAULT_TWITTER_NOTIFICATION_TEXT = "**{xuser}** posted a new tweet!\n**{url}**";
 
 const escapeHtml = (value: string) =>
   value
@@ -98,6 +100,19 @@ type YouTubeSettingsSnapshot = {
   subscriptionIds: string[];
 };
 
+type TwitterSubscription = {
+  id: string;
+  name: string;
+  tweetId: string;
+  tweetHistory: string[];
+};
+
+type TwitterSettingsSnapshot = {
+  channel: string;
+  text: string;
+  accountIds: string[];
+};
+
 type BootstrapPayload = {
   bootstrap?: {
     serverSettings?: {
@@ -114,6 +129,11 @@ type BootstrapPayload = {
       twitchNotificationChannel?: unknown;
       twitchNotificationText?: unknown;
       allStreamers?: unknown;
+    } | null;
+    twitterSettings?: {
+      twitterNotificationChannel?: unknown;
+      twitterNotificationText?: unknown;
+      xusers?: unknown;
     } | null;
     youtubeSettings?: {
       youtubeNotificationChannel?: unknown;
@@ -185,6 +205,11 @@ export default function Page() {
   const [twitchStreamers, setTwitchStreamers] = React.useState<string[]>([]);
   const [newTwitchStreamer, setNewTwitchStreamer] = React.useState("");
   const [isSavingTwitchSettings, setIsSavingTwitchSettings] = React.useState(false);
+  const [twitterNotificationChannel, setTwitterNotificationChannel] = React.useState("");
+  const [twitterNotificationText, setTwitterNotificationText] = React.useState(DEFAULT_TWITTER_NOTIFICATION_TEXT);
+  const [twitterAccounts, setTwitterAccounts] = React.useState<TwitterSubscription[]>([]);
+  const [newTwitterAccount, setNewTwitterAccount] = React.useState("");
+  const [isSavingTwitterSettings, setIsSavingTwitterSettings] = React.useState(false);
   const [youtubeNotificationChannel, setYouTubeNotificationChannel] = React.useState("");
   const [youtubeNotificationText, setYouTubeNotificationText] = React.useState(DEFAULT_YOUTUBE_NOTIFICATION_TEXT);
   const twitchTemplateRef = React.useRef<HTMLTextAreaElement | null>(null);
@@ -197,6 +222,11 @@ export default function Page() {
     channel: "",
     text: DEFAULT_TWITCH_NOTIFICATION_TEXT,
     streamers: []
+  });
+  const [savedTwitterSettings, setSavedTwitterSettings] = React.useState<TwitterSettingsSnapshot>({
+    channel: "",
+    text: DEFAULT_TWITTER_NOTIFICATION_TEXT,
+    accountIds: []
   });
   const [savedYouTubeSettings, setSavedYouTubeSettings] = React.useState<YouTubeSettingsSnapshot>({
     channel: "",
@@ -603,6 +633,18 @@ export default function Page() {
     setTwitchStreamers((current) => current.filter((item) => item !== value));
   };
 
+  const normalizeTwitterHandle = (value: string) => {
+    const input = value.trim();
+    if (!input) {
+      return "";
+    }
+    const match = input.match(/(?:x\.com|twitter\.com)\/([A-Za-z0-9_]{1,15})/i);
+    if (match?.[1]) {
+      return match[1].toLowerCase();
+    }
+    return input.replace(/^@+/, "").toLowerCase();
+  };
+
   const handleSaveTwitchSettings = async () => {
     if (!selectedServerId) {
       return;
@@ -638,6 +680,69 @@ export default function Page() {
       toast.error("Twitch 設定儲存失敗，請檢查網路後再試");
     } finally {
       setIsSavingTwitchSettings(false);
+    }
+  };
+
+  const handleAddTwitterAccount = () => {
+    const value = normalizeTwitterHandle(newTwitterAccount);
+    if (!value) {
+      return;
+    }
+    if (twitterAccounts.some((item) => item.id === value)) {
+      toast.error("此 Twitter 帳號已在清單中");
+      return;
+    }
+    setTwitterAccounts((current) => [
+      ...current,
+      {
+        id: value,
+        name: value,
+        tweetId: "",
+        tweetHistory: []
+      }
+    ]);
+    setNewTwitterAccount("");
+  };
+
+  const handleRemoveTwitterAccount = (value: string) => {
+    setTwitterAccounts((current) => current.filter((item) => item.id !== value));
+  };
+
+  const handleSaveTwitterSettings = async () => {
+    if (!selectedServerId) {
+      return;
+    }
+    if (!isTwitterChannelSelectionValid) {
+      toast.error("請從清單選擇有效的通知頻道，或清空欄位");
+      return;
+    }
+
+    setIsSavingTwitterSettings(true);
+    try {
+      const response = await fetch(`/api/twitter-settings/${selectedServerId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          twitterNotificationChannel: twitterNotificationChannel || null,
+          twitterNotificationText,
+          xusers: twitterAccounts
+        })
+      });
+
+      if (!response.ok) {
+        toast.error("Twitter 設定儲存失敗");
+        return;
+      }
+      toast.success("Twitter 設定儲存成功");
+      setSavedTwitterSettings({
+        channel: twitterNotificationChannel,
+        text: twitterNotificationText,
+        accountIds: twitterAccounts.map((item) => item.id).sort()
+      });
+    } catch {
+      toast.error("Twitter 設定儲存失敗，請檢查網路後再試");
+    } finally {
+      setIsSavingTwitterSettings(false);
     }
   };
 
@@ -802,6 +907,14 @@ export default function Page() {
       JSON.stringify(twitchStreamers) !== JSON.stringify(savedTwitchSettings.streamers),
     [savedTwitchSettings, twitchNotificationChannel, twitchNotificationText, twitchStreamers]
   );
+  const isTwitterDirty = React.useMemo(() => {
+    const currentIds = twitterAccounts.map((item) => item.id).sort();
+    return (
+      twitterNotificationChannel !== savedTwitterSettings.channel ||
+      twitterNotificationText !== savedTwitterSettings.text ||
+      JSON.stringify(currentIds) !== JSON.stringify(savedTwitterSettings.accountIds)
+    );
+  }, [savedTwitterSettings, twitterAccounts, twitterNotificationChannel, twitterNotificationText]);
   const isYouTubeDirty = React.useMemo(() => {
     const currentIds = youtubeSubscriptions.map((item) => item.id).sort();
     return (
@@ -832,6 +945,10 @@ export default function Page() {
     () => isChannelPickerValid("youtube:notification", youtubeNotificationChannel),
     [isChannelPickerValid, youtubeNotificationChannel]
   );
+  const isTwitterChannelSelectionValid = React.useMemo(
+    () => isChannelPickerValid("twitter:notification", twitterNotificationChannel),
+    [isChannelPickerValid, twitterNotificationChannel]
+  );
   const twitchTemplatePreview = React.useMemo(
     () =>
       twitchNotificationText
@@ -856,6 +973,18 @@ export default function Page() {
     () => renderPreviewMarkdown(youtubeTemplatePreview),
     [youtubeTemplatePreview]
   );
+  const twitterTemplatePreview = React.useMemo(
+    () =>
+      twitterNotificationText
+        .replaceAll("{xuser}", "din4ni")
+        .replaceAll("{url}", "https://x.com/din4ni/status/1234567890123456789")
+        .replaceAll("\\n", "\n"),
+    [twitterNotificationText]
+  );
+  const twitterTemplatePreviewHtml = React.useMemo(
+    () => renderPreviewMarkdown(twitterTemplatePreview),
+    [twitterTemplatePreview]
+  );
 
   const hasUnsavedChangesOnCurrentPage = React.useMemo(() => {
     if (activeNavMain === "伺服器設定") {
@@ -867,11 +996,14 @@ export default function Page() {
     if (activeNavMain === "Twitch") {
       return isTwitchDirty;
     }
+    if (activeNavMain === "Twitter") {
+      return isTwitterDirty;
+    }
     if (activeNavMain === "YouTube") {
       return isYouTubeDirty;
     }
     return false;
-  }, [activeNavMain, isLogChannelsDirty, isLogSettingsDirty, isServerSettingsDirty, isTwitchDirty, isYouTubeDirty]);
+  }, [activeNavMain, isLogChannelsDirty, isLogSettingsDirty, isServerSettingsDirty, isTwitchDirty, isTwitterDirty, isYouTubeDirty]);
 
   const confirmLeaveIfUnsaved = React.useCallback(() => {
     if (!hasUnsavedChangesOnCurrentPage) {
@@ -908,6 +1040,28 @@ export default function Page() {
       return;
     }
 
+    if (activeNavMain === "Twitter") {
+      setTwitterNotificationChannel(savedTwitterSettings.channel);
+      setTwitterNotificationText(savedTwitterSettings.text);
+      setTwitterAccounts((current) => {
+        const byId = new Map(current.map((item) => [item.id, item]));
+        return savedTwitterSettings.accountIds.map((id) => {
+          const existing = byId.get(id);
+          if (existing) {
+            return existing;
+          }
+          return {
+            id,
+            name: id,
+            tweetId: "",
+            tweetHistory: []
+          };
+        });
+      });
+      setNewTwitterAccount("");
+      return;
+    }
+
     if (activeNavMain === "YouTube") {
       setYouTubeNotificationChannel(savedYouTubeSettings.channel);
       setYouTubeNotificationText(savedYouTubeSettings.text);
@@ -938,6 +1092,7 @@ export default function Page() {
     savedLogSettings,
     savedServerSettings,
     savedTwitchSettings,
+    savedTwitterSettings,
     savedYouTubeSettings,
     timezoneOptions
   ]);
@@ -1059,6 +1214,10 @@ export default function Page() {
       setTwitchNotificationText(DEFAULT_TWITCH_NOTIFICATION_TEXT);
       setTwitchStreamers([]);
       setNewTwitchStreamer("");
+      setTwitterNotificationChannel("");
+      setTwitterNotificationText(DEFAULT_TWITTER_NOTIFICATION_TEXT);
+      setTwitterAccounts([]);
+      setNewTwitterAccount("");
       setYouTubeNotificationChannel("");
       setYouTubeNotificationText(DEFAULT_YOUTUBE_NOTIFICATION_TEXT);
       setYouTubeSubscriptions([]);
@@ -1089,6 +1248,7 @@ export default function Page() {
       const serverData = bootstrap.serverSettings;
       const logData = bootstrap.logSettings;
       const twitchData = bootstrap.twitchSettings;
+      const twitterData = bootstrap.twitterSettings;
       const youtubeData = bootstrap.youtubeSettings;
 
       const prefix = typeof serverData?.prefix === "string" ? serverData.prefix : "";
@@ -1182,6 +1342,29 @@ export default function Page() {
             .filter((item) => item.id)
         : [];
 
+      const nextTwitterChannel =
+        typeof twitterData?.twitterNotificationChannel === "string" ? twitterData.twitterNotificationChannel : "";
+      const nextTwitterText =
+        typeof twitterData?.twitterNotificationText === "string"
+          ? twitterData.twitterNotificationText
+          : DEFAULT_TWITTER_NOTIFICATION_TEXT;
+      const nextTwitterAccounts = Array.isArray(twitterData?.xusers)
+        ? twitterData.xusers
+            .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+            .map((item) => ({
+              id:
+                typeof item.id === "string"
+                  ? item.id.trim().toLowerCase().replace(/^@+/, "")
+                  : "",
+              name: typeof item.name === "string" ? item.name : typeof item.id === "string" ? item.id : "",
+              tweetId: typeof item.tweetId === "string" ? item.tweetId : "",
+              tweetHistory: Array.isArray(item.tweetHistory)
+                ? item.tweetHistory.filter((value): value is string => typeof value === "string")
+                : []
+            }))
+            .filter((item) => item.id)
+        : [];
+
       const nextChannels = Array.isArray(bootstrap.channels)
         ? bootstrap.channels
             .filter((channel): channel is { id: string; name: string } => {
@@ -1221,10 +1404,18 @@ export default function Page() {
       setYouTubeNotificationChannel(nextYouTubeChannel);
       setYouTubeNotificationText(nextYouTubeText);
       setYouTubeSubscriptions(nextYouTubeSubs);
+      setTwitterNotificationChannel(nextTwitterChannel);
+      setTwitterNotificationText(nextTwitterText);
+      setTwitterAccounts(nextTwitterAccounts);
       setSavedYouTubeSettings({
         channel: nextYouTubeChannel,
         text: nextYouTubeText,
         subscriptionIds: nextYouTubeSubs.map((item) => item.id).sort()
+      });
+      setSavedTwitterSettings({
+        channel: nextTwitterChannel,
+        text: nextTwitterText,
+        accountIds: nextTwitterAccounts.map((item) => item.id).sort()
       });
       setServerChannels(nextChannels);
       setServerRoles(nextRoles);
@@ -1820,6 +2011,158 @@ export default function Page() {
                         onClick={handleSaveTwitchSettings}
                         disabled={isSavingTwitchSettings || !isTwitchChannelSelectionValid}>
                         {isSavingTwitchSettings ? "儲存中..." : "儲存 Twitch 設定"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {isAuthenticated && !showServerPicker && activeNavMain === "Twitter" && (
+                  <div className="mx-auto mt-8 w-full max-w-[66.666%] space-y-5">
+                    <h2 className="flex items-center gap-3 text-5xl font-semibold tracking-tight">
+                      <IconBrandX className="size-11" />
+                      <span>Twitter</span>
+                    </h2>
+                    <div className="bg-border h-px w-full" />
+                    <div className="rounded-xl border bg-card/40 p-4">
+                      <h3 className="text-base font-semibold">通知設定</h3>
+                      <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <p className="text-muted-foreground text-sm">通知頻道</p>
+                          <div className="relative">
+                            <Input
+                              className="!h-11 w-full rounded-lg bg-background/40 text-sm"
+                              value={getChannelInputValue("twitter:notification", twitterNotificationChannel)}
+                              placeholder="輸入頻道名稱篩選"
+                              onFocus={() =>
+                                setShowChannelSuggestions((current) => ({
+                                  ...current,
+                                  "twitter:notification": true
+                                }))
+                              }
+                              onBlur={() => {
+                                window.setTimeout(
+                                  () =>
+                                    setShowChannelSuggestions((current) => ({
+                                      ...current,
+                                      "twitter:notification": false
+                                    })),
+                                  120
+                                );
+                              }}
+                              onChange={(event) => {
+                                const value = event.target.value;
+                                setChannelQueries((current) => ({
+                                  ...current,
+                                  "twitter:notification": value
+                                }));
+                                setTwitterNotificationChannel("");
+                                setShowChannelSuggestions((current) => ({
+                                  ...current,
+                                  "twitter:notification": true
+                                }));
+                              }}
+                            />
+                            {showChannelSuggestions["twitter:notification"] && (
+                              <div className="bg-popover no-scrollbar absolute z-40 mt-1 max-h-64 w-full overflow-y-auto rounded-md border shadow-md">
+                                {getFilteredChannels("twitter:notification").map((channel) => (
+                                  <button
+                                    key={channel.id}
+                                    type="button"
+                                    className="hover:bg-accent block w-full px-3 py-2 text-left text-sm"
+                                    onMouseDown={(event) => {
+                                      event.preventDefault();
+                                      selectChannel("twitter:notification", channel, setTwitterNotificationChannel);
+                                    }}>
+                                    #{channel.name}
+                                  </button>
+                                ))}
+                                {getFilteredChannels("twitter:notification").length === 0 && (
+                                  <div className="text-muted-foreground px-3 py-2 text-sm">找不到符合的頻道</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-muted-foreground text-sm">通知訊息模板</p>
+                          <textarea
+                            className="focus-visible:border-ring focus-visible:ring-ring/50 min-h-11 w-full resize-none overflow-hidden rounded-lg border bg-background/40 px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
+                            value={twitterNotificationText}
+                            onChange={(event) => setTwitterNotificationText(event.target.value)}
+                            placeholder="例如：**{xuser}** posted a new tweet! **{url}**"
+                            rows={2}
+                          />
+                          <p className="text-muted-foreground text-xs">
+                            {"{xuser}"} 會自動替換帳號名稱，{"{url}"} 會自動替換貼文連結。
+                          </p>
+                          <Select onValueChange={(value) => insertRoleMention(value, setTwitterNotificationText)}>
+                            <SelectTrigger className="!h-10 !w-full rounded-lg bg-background/40 text-sm">
+                              <SelectValue placeholder="插入身分組提及（@Role）" />
+                            </SelectTrigger>
+                            <SelectContent position="popper" side="bottom" align="start" sideOffset={6}>
+                              {serverRoles.map((role) => (
+                                <SelectItem key={role.id} value={role.id}>
+                                  @{role.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="rounded-lg border bg-background/30 p-3">
+                            <p className="text-muted-foreground text-xs">Discord 預覽</p>
+                            <div className="mt-2 rounded-md border bg-card/60 p-3">
+                              <div
+                                className="break-all text-sm [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5"
+                                dangerouslySetInnerHTML={{ __html: twitterTemplatePreviewHtml }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border bg-card/40 p-4">
+                      <h3 className="text-base font-semibold">追蹤帳號</h3>
+                      <div className="mt-3 flex gap-2">
+                        <Input
+                          className="!h-11 rounded-lg bg-background/40 text-sm"
+                          value={newTwitterAccount}
+                          onChange={(event) => setNewTwitterAccount(event.target.value)}
+                          placeholder="輸入 @handle 或 https://x.com/handle"
+                        />
+                        <Button className="px-5" onClick={handleAddTwitterAccount}>
+                          新增
+                        </Button>
+                      </div>
+                      <div className="mt-4 space-y-2">
+                        {twitterAccounts.length === 0 && (
+                          <p className="text-muted-foreground text-sm">尚未加入任何 Twitter 帳號</p>
+                        )}
+                        {twitterAccounts.map((account) => (
+                          <div key={account.id} className="flex items-center justify-between rounded-md border px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <div className="bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold">
+                                {account.id.slice(0, 1).toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold">{account.name || account.id}</p>
+                                <p className="text-muted-foreground text-xs">@{account.id}</p>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRemoveTwitterAccount(account.id)}>
+                              移除
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-2">
+                      <Button
+                        className="px-6"
+                        onClick={handleSaveTwitterSettings}
+                        disabled={isSavingTwitterSettings || !isTwitterChannelSelectionValid}>
+                        {isSavingTwitterSettings ? "儲存中..." : "儲存 Twitter 設定"}
                       </Button>
                     </div>
                   </div>
