@@ -89,23 +89,69 @@ class Twitter(Cog_Extension):
         display_name = handle
 
         try:
+            _debug_twitter(f"resolve user by screen_name start handle={handle}")
             user = await client.get_user_by_screen_name(handle)
             user_id = str(user.id)
             screen_name = getattr(user, "screen_name", handle) or handle
             display_name = getattr(user, "name", handle) or handle
-        except Exception:
+            _debug_twitter(
+                f"resolve user by screen_name ok handle={handle} user_id={user_id} "
+                f"screen_name={screen_name} display_name={display_name}"
+            )
+        except Exception as exc:
+            _debug_twitter(f"resolve user by screen_name failed handle={handle} error={exc!r}")
             fallback = _resolve_user_meta_from_syndication(handle)
             if not fallback:
-                raise
+                _debug_twitter(f"syndication fallback empty handle={handle}; trying search_tweet")
+                search_tweets = await client.search_tweet(f"from:{handle}", "Latest", count=1)
+                if not search_tweets:
+                    _debug_twitter(f"search_tweet fallback empty handle={handle}")
+                    return None
+                tweet = search_tweets[0]
+                tweet_id = str(tweet.id)
+                user = getattr(tweet, "user", None)
+                screen_name = getattr(user, "screen_name", handle) or handle
+                display_name = getattr(user, "name", screen_name) or screen_name
+                tweet_url = f"https://x.com/{screen_name}/status/{tweet_id}"
+                _debug_twitter(
+                    f"search_tweet fallback ok handle={handle} tweet_id={tweet_id} "
+                    f"screen_name={screen_name} display_name={display_name}"
+                )
+                return tweet_id, tweet_url, display_name
             user_id, screen_name, display_name = fallback
+            _debug_twitter(
+                f"syndication fallback ok handle={handle} user_id={user_id} "
+                f"screen_name={screen_name} display_name={display_name}"
+            )
 
-        tweets = await client.get_user_tweets(user_id, count=1)
-        if not tweets:
-            return None
+        try:
+            _debug_twitter(f"get_user_tweets start handle={handle} user_id={user_id}")
+            tweets = await client.get_user_tweets(user_id, count=1)
+            if not tweets:
+                _debug_twitter(f"get_user_tweets empty handle={handle} user_id={user_id}")
+                return None
+            tweet = tweets[0]
+            _debug_twitter(f"get_user_tweets ok handle={handle} user_id={user_id} tweet_id={tweet.id}")
+        except Exception as exc:
+            _debug_twitter(
+                f"get_user_tweets failed handle={handle} user_id={user_id} error={exc!r}; "
+                f"trying search_tweet"
+            )
+            search_tweets = await client.search_tweet(f"from:{screen_name}", "Latest", count=1)
+            if not search_tweets:
+                _debug_twitter(f"search_tweet fallback empty handle={handle} screen_name={screen_name}")
+                return None
+            tweet = search_tweets[0]
+            _debug_twitter(
+                f"search_tweet fallback ok handle={handle} screen_name={screen_name} tweet_id={tweet.id}"
+            )
 
-        tweet = tweets[0]
         tweet_id = str(tweet.id)
         tweet_url = f"https://x.com/{screen_name}/status/{tweet_id}"
+        _debug_twitter(
+            f"resolve latest tweet final handle={handle} tweet_id={tweet_id} "
+            f"screen_name={screen_name} display_name={display_name}"
+        )
         return tweet_id, tweet_url, display_name
 
     @commands.Cog.listener()
