@@ -24,6 +24,34 @@ def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
     return any(row[1] == column for row in cursor.fetchall())
 
 
+def _is_locked_error(exc: sqlite3.OperationalError) -> bool:
+    return "database is locked" in str(exc).lower()
+
+
+def _run_with_lock_retry(
+    action,
+    *,
+    operation_name: str,
+    max_attempts: int = 8,
+    base_delay_seconds: float = 0.5,
+):
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return action()
+        except sqlite3.OperationalError as exc:
+            if not _is_locked_error(exc) or attempt == max_attempts:
+                raise
+            delay = base_delay_seconds * attempt
+            logger.warning(
+                "SQLite locked during %s; retrying in %.1fs (%d/%d)",
+                operation_name,
+                delay,
+                attempt,
+                max_attempts,
+            )
+            time.sleep(delay)
+
+
 def _ensure_migrations_table(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
@@ -91,14 +119,20 @@ def init_storage(local_db_path: Optional[Path]) -> sqlite3.Connection:
     sqlite_path.parent.mkdir(parents=True, exist_ok=True)
     _debug_sql(f"open sqlite path: {sqlite_path}")
 
-    conn = sqlite3.connect(str(sqlite_path), check_same_thread=False)
+    conn = sqlite3.connect(str(sqlite_path), check_same_thread=False, timeout=30.0)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 30000")
 
     schema_path = base_dir / "data" / "schema.sql"
     _debug_sql(f"exec schema: {schema_path}")
-    conn.executescript(schema_path.read_text(encoding="utf-8"))
-    _apply_sql_migrations(conn, base_dir / "data" / "migrations")
-    conn.commit()
+    schema_sql = schema_path.read_text(encoding="utf-8")
+
+    def _bootstrap_schema() -> None:
+        conn.executescript(schema_sql)
+        _apply_sql_migrations(conn, base_dir / "data" / "migrations")
+        conn.commit()
+
+    _run_with_lock_retry(_bootstrap_schema, operation_name="storage bootstrap")
     _debug_sql("storage initialized and committed")
 
     _conn = conn

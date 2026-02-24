@@ -1,5 +1,7 @@
 ﻿import typing
 from datetime import datetime
+import logging
+import os
 
 import discord
 import requests
@@ -12,6 +14,13 @@ from discord.ext.commands import has_permissions
 
 AUTH_URL = "https://id.twitch.tv/oauth2/token"
 online_title = [{}]
+logger = logging.getLogger("__main__")
+_DEBUG_TWITCH = os.getenv("DEBUG_TWITCH", "0") == "1"
+
+
+def _debug_twitch(message: str) -> None:
+    if _DEBUG_TWITCH:
+        logger.info("[twitch] %s", message)
 
 
 def _fetch_access_token(client_id: str, client_secret: str) -> str | None:
@@ -35,33 +44,53 @@ def stream_check(usr: str, guild_data: dict, client_id: str, access_token: str):
         "Client-ID": client_id,
         "Authorization": f"Bearer {access_token}",
     }
-    url = "https://api.twitch.tv/helix/streams?user_login=" + usr
-    r = requests.get(url, headers=head, timeout=15).json().get("data", [])
-    diff = True
-    if r:
-        r = r[0]
-        if r.get("type") == "live" and usr not in guild_data["online_streamers"]:
-            if r["user_login"] in online_title[0]:
-                if r["title"] == online_title[0][r["user_login"]]["title"]:
-                    diff = False
-            online_title[0][r["user_login"]] = {"title": r["title"]}
-            if usr in guild_data["offline_streamers"]:
-                guild_data["offline_streamers"].remove(usr)
+    try:
+        streams_response = requests.get(
+            "https://api.twitch.tv/helix/streams?user_login=" + usr,
+            headers=head,
+            timeout=15,
+        )
+        streams_response.raise_for_status()
+        streams = streams_response.json().get("data", [])
+    except Exception:
+        return None
+
+    if streams and isinstance(streams[0], dict) and streams[0].get("type") == "live":
+        stream = streams[0]
+        if usr in guild_data["offline_streamers"]:
+            guild_data["offline_streamers"].remove(usr)
+        if usr not in guild_data["online_streamers"]:
             guild_data["online_streamers"].append(usr)
-            usr_icon = requests.get(
-                f"https://api.twitch.tv/helix/users?login={usr}",
-                headers=head,
-                timeout=15,
-            ).json()["data"][0]["profile_image_url"]
-            if diff:
-                return r, usr_icon
-            return None
+            user_login = stream.get("user_login", usr)
+            online_title[0][user_login] = {"title": stream.get("title", "")}
+            _debug_twitch(
+                f"{usr} -> ONLINE | online={guild_data['online_streamers']} | offline={guild_data['offline_streamers']}"
+            )
+
+            usr_icon = ""
+            try:
+                user_response = requests.get(
+                    f"https://api.twitch.tv/helix/users?login={usr}",
+                    headers=head,
+                    timeout=15,
+                )
+                user_response.raise_for_status()
+                user_data = user_response.json().get("data", [])
+                if user_data and isinstance(user_data[0], dict):
+                    usr_icon = user_data[0].get("profile_image_url", "")
+            except Exception:
+                usr_icon = ""
+            return stream, usr_icon
         return None
 
     if usr in guild_data["online_streamers"]:
         guild_data["online_streamers"].remove(usr)
+    online_title[0].pop(usr, None)
     if usr not in guild_data["offline_streamers"]:
         guild_data["offline_streamers"].append(usr)
+    _debug_twitch(
+        f"{usr} -> OFFLINE | online={guild_data['online_streamers']} | offline={guild_data['offline_streamers']}"
+    )
     return None
 
 
@@ -102,8 +131,12 @@ class Twitch(Cog_Extension):
                 try:
                     result = stream_check(usr, guild_data, client_id, access_token)
                 except Exception:
+                    _debug_twitch(f"stream_check exception guild={guild.id} user={usr}")
                     continue
                 save_twitch_data(guild.id, guild_data)
+                _debug_twitch(
+                    f"saved guild={guild.id} user={usr} | online={guild_data['online_streamers']} | offline={guild_data['offline_streamers']}"
+                )
                 if not result:
                     continue
 
