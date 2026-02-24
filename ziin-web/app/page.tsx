@@ -33,6 +33,7 @@ const DEFAULT_LOG_SETTINGS: Record<string, boolean> = {
   voiceChannelSwitch: false,
   voiceStateUpdate: false
 };
+const UNAVAILABLE_LOG_SETTING_KEYS = new Set(["messageDeleteBulk"]);
 
 export default function Page() {
   const LOG_CHANNEL_TARGETS = [
@@ -131,7 +132,7 @@ export default function Page() {
         title: "訊息事件",
         items: [
           { key: "messageDelete", label: "刪除訊息" },
-          { key: "messageDeleteBulk", label: "大量刪除訊息" },
+          { key: "messageDeleteBulk", label: "大量刪除訊息", unavailable: true },
           { key: "messageUpdate", label: "編輯訊息" }
         ]
       },
@@ -171,6 +172,10 @@ export default function Page() {
   };
 
   const toggleLogSetting = (key: string) => {
+    if (UNAVAILABLE_LOG_SETTING_KEYS.has(key)) {
+      return;
+    }
+
     setLogSettings((current) => ({
       ...current,
       [key]: !current[key]
@@ -395,6 +400,15 @@ export default function Page() {
   const isAuthenticated = status === "authenticated";
   const showServerPicker = status === "authenticated" && !selectedServerId;
   const [theme, setTheme] = React.useState<"light" | "dark">("light");
+
+  React.useEffect(() => {
+    if (!isAuthenticated || showServerPicker) {
+      document.title = "Dashboard - Ziin";
+      return;
+    }
+
+    document.title = `${activeNavMain} - ${currentServerName ?? "Ziin"}`;
+  }, [activeNavMain, currentServerName, isAuthenticated, showServerPicker]);
 
   React.useEffect(() => {
     const savedTheme = window.localStorage.getItem("theme");
@@ -915,21 +929,37 @@ export default function Page() {
                         <div key={section.title} className="rounded-xl border bg-card/40 p-4">
                           <h3 className="text-base font-semibold">{section.title}</h3>
                           <div className="mt-3 space-y-2">
-                            {section.items.map((item) => (
-                              <div
-                                key={item.key}
-                                className="flex items-center justify-between rounded-md border bg-background/40 px-3 py-2">
-                                <span className="text-sm">{item.label}</span>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant={logSettings[item.key] ? "default" : "outline"}
-                                  className="min-w-16"
-                                  onClick={() => toggleLogSetting(item.key)}>
-                                  {logSettings[item.key] ? "開啟" : "關閉"}
-                                </Button>
-                              </div>
-                            ))}
+                            {section.items.map((item) => {
+                              const isUnavailable = item.unavailable === true;
+
+                              return (
+                                <div
+                                  key={item.key}
+                                  className={`flex items-center justify-between rounded-md border px-3 py-2 ${
+                                    isUnavailable
+                                      ? "border-dashed border-muted-foreground/40 bg-muted/40"
+                                      : "bg-background/40"
+                                  }`}>
+                                  <span className="text-sm">
+                                    {item.label}
+                                    {isUnavailable && (
+                                      <span className="text-muted-foreground ml-2 text-xs">暫不開放</span>
+                                    )}
+                                  </span>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={
+                                      isUnavailable ? "secondary" : logSettings[item.key] ? "default" : "outline"
+                                    }
+                                    className="min-w-16"
+                                    disabled={isUnavailable}
+                                    onClick={() => toggleLogSetting(item.key)}>
+                                    {isUnavailable ? "暫不開放" : logSettings[item.key] ? "開啟" : "關閉"}
+                                  </Button>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       ))}
