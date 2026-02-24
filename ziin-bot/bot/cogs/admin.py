@@ -90,7 +90,7 @@ class Admin(Cog_Extension):
 
         limit = limit or 1
         if 0 < limit <= 500:
-            with ctx.channel.typing():
+            async with ctx.channel.typing():
                 await ctx.message.delete()
                 deleted = await ctx.channel.purge(
                     limit=limit,

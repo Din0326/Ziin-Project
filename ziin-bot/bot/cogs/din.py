@@ -148,12 +148,12 @@ class Din(Cog_Extension):
 		def _check(message):
 			return not len(targets) or message.author in targets
 		if 0 < limit <= 500:
-			with ctx.channel.typing():
+			async with ctx.channel.typing():
 				await ctx.message.delete()
 				deleted = await ctx.channel.purge(limit=limit, after=datetime.utcnow()-timedelta(days=14),
 												  check=_check)
 
-				await ctx.send(f"Deleted {len(deleted):,} messages.", delete_after=5)
+			await ctx.send(f"Deleted {len(deleted):,} messages.", delete_after=5)
 		else:
 			await ctx.send("銝甈⊥?憭?00???粹?")
 
@@ -244,4 +244,3 @@ class Din(Cog_Extension):
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Din(bot))
-
