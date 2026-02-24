@@ -5,6 +5,7 @@ import os
 import re
 import traceback
 import typing
+from pathlib import Path
 
 import discord
 import requests
@@ -12,10 +13,14 @@ from bot.core.classed import Cog_Extension
 from bot.services.channel_data import get_twitter_data, save_twitter_data, ensure_twitter_data
 from discord.ext import commands, tasks
 from discord.ext.commands import has_permissions
-from twikit.guest import GuestClient
+from twikit import Client
 
 logger = logging.getLogger("__main__")
 _DEBUG_TWITTER = os.getenv("DEBUG_TWITTER", "0") == "1"
+_TWITTER_AUTH_INFO_1 = os.getenv("TWITTER_AUTH_INFO_1", "").strip()
+_TWITTER_AUTH_INFO_2 = os.getenv("TWITTER_AUTH_INFO_2", "").strip()
+_TWITTER_PASSWORD = os.getenv("TWITTER_PASSWORD", "").strip()
+_TWITTER_COOKIES_PATH = os.getenv("TWITTER_COOKIES_PATH", "/app/data/twitter_cookies.json").strip() or "/app/data/twitter_cookies.json"
 
 
 def _debug_twitter(message: str) -> None:
@@ -72,22 +77,64 @@ def _resolve_user_meta_from_syndication(handle: str) -> tuple[str, str, str] | N
 class Twitter(Cog_Extension):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
-        self._guest: GuestClient | None = None
-        self._guest_ready = False
+        self._client: Client | None = None
+        self._client_ready = False
+        self._cookie_path = Path(_TWITTER_COOKIES_PATH)
 
-    async def _get_guest_client(self) -> GuestClient:
-        if self._guest is None:
-            _debug_twitter("guest client create")
-            self._guest = GuestClient()
-        if not self._guest_ready:
-            _debug_twitter("guest client activate start")
-            await self._guest.activate()
-            self._guest_ready = True
-            _debug_twitter("guest client activate ok")
-        return self._guest
+    async def _activate_logged_client(self, client: Client) -> None:
+        if not _TWITTER_AUTH_INFO_1 or not _TWITTER_PASSWORD:
+            raise RuntimeError("TWITTER_AUTH_INFO_1 or TWITTER_PASSWORD is missing")
+
+        loaded_from_cookie = False
+        if self._cookie_path.exists():
+            try:
+                _debug_twitter(f"load cookies start path={self._cookie_path}")
+                client.load_cookies(str(self._cookie_path))
+                loaded_from_cookie = True
+                _debug_twitter("load cookies ok")
+            except Exception as exc:
+                _debug_twitter(f"load cookies failed error={exc!r}")
+
+        if loaded_from_cookie:
+            try:
+                _debug_twitter("validate cookies start")
+                await client.search_tweet("from:Twitter", "Latest", count=1)
+                _debug_twitter("validate cookies ok")
+                return
+            except Exception as exc:
+                _debug_twitter(f"validate cookies failed error={exc!r}; relogin")
+
+        login_kwargs: dict[str, str] = {
+            "auth_info_1": _TWITTER_AUTH_INFO_1,
+            "password": _TWITTER_PASSWORD,
+        }
+        if _TWITTER_AUTH_INFO_2:
+            login_kwargs["auth_info_2"] = _TWITTER_AUTH_INFO_2
+
+        _debug_twitter("login start")
+        await client.login(**login_kwargs)
+        _debug_twitter("login ok")
+
+        try:
+            self._cookie_path.parent.mkdir(parents=True, exist_ok=True)
+            client.save_cookies(str(self._cookie_path))
+            _debug_twitter(f"save cookies ok path={self._cookie_path}")
+        except Exception as exc:
+            _debug_twitter(f"save cookies failed error={exc!r}")
+
+    async def _get_client(self) -> Client:
+        if self._client is None:
+            _debug_twitter("client create")
+            self._client = Client("en-US")
+        if not self._client_ready:
+            _debug_twitter("client ready check start")
+            await self._activate_logged_client(self._client)
+            self._client_ready = True
+            _debug_twitter("client ready check ok")
+        return self._client
 
     async def _resolve_latest_tweet(self, handle: str) -> tuple[str, str, str] | None:
-        client = await self._get_guest_client()
+        client = await self._get_client()
         user_id = ""
         screen_name = handle
         display_name = handle
@@ -188,7 +235,7 @@ class Twitter(Cog_Extension):
                     _debug_twitter(f"fetch failed guild={guild.id} handle={handle} error={exc}")
                     if _DEBUG_TWITTER:
                         _debug_twitter(f"fetch traceback guild={guild.id} handle={handle}\n{traceback.format_exc()}")
-                    self._guest_ready = False
+                    self._client_ready = False
                     continue
 
                 if not latest:
