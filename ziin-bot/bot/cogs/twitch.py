@@ -45,6 +45,9 @@ def stream_check(usr: str, guild_data: dict, client_id: str, access_token: str):
         "Authorization": f"Bearer {access_token}",
     }
     try:
+        _debug_twitch(
+                f"{usr} -> checking-49"
+            )
         streams_response = requests.get(
             "https://api.twitch.tv/helix/streams?user_login=" + usr,
             headers=head,
@@ -53,6 +56,9 @@ def stream_check(usr: str, guild_data: dict, client_id: str, access_token: str):
         streams_response.raise_for_status()
         streams = streams_response.json().get("data", [])
     except Exception:
+        _debug_twitch(
+                f"{usr} -> checking-60"
+            )
         return None
 
     if streams and isinstance(streams[0], dict) and streams[0].get("type") == "live":
@@ -133,7 +139,13 @@ class Twitch(Cog_Extension):
                 except Exception:
                     _debug_twitch(f"stream_check exception guild={guild.id} user={usr}")
                     continue
+                _debug_twitch(
+                    f"{usr} -> checking-143"
+                )
                 save_twitch_data(guild.id, guild_data)
+                _debug_twitch(
+                    f"{usr} -> checking-147"
+                )
                 _debug_twitch(
                     f"saved guild={guild.id} user={usr} | online={guild_data['online_streamers']} | offline={guild_data['offline_streamers']}"
                 )
