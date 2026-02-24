@@ -14,6 +14,30 @@ type GuildSettingsRecord = {
 };
 
 type LogSettingsRecord = Record<string, boolean>;
+type TwitchSettingsRecord = {
+  TwitchNotificationChannel: string | null;
+  TwitchNotificationText: string;
+  AllStreamers: string[];
+  OnlineStreamers: string[];
+  OfflineStreamers: string[];
+};
+
+type YouTubeSubscriptionRecord = {
+  id: string;
+  name: string;
+  videoId: string;
+  streamId: string;
+  shortId: string;
+  videoHistory: string[];
+  streamHistory: string[];
+  shortHistory: string[];
+};
+
+type YouTubeSettingsRecord = {
+  YouTubeNotificationChannel: string | null;
+  YouTubeNotificationText: string;
+  YouTubers: YouTubeSubscriptionRecord[];
+};
 
 let cachedDb: Database.Database | null = null;
 
@@ -32,6 +56,7 @@ const getDb = () => {
   const schemaPath = path.join(process.cwd(), "data", "schema.sql");
   const schemaSql = readFileSync(schemaPath, "utf8");
   db.exec(schemaSql);
+  ensureNotificationTables(db);
 
   cachedDb = db;
   return db;
@@ -66,7 +91,112 @@ const DEFAULT_LOG_SETTINGS: Array<{ fieldName: string; enabled: boolean }> = [
   { fieldName: "messageDeleteBulk", enabled: false }
 ];
 
+const DEFAULT_TWITCH_NOTIFICATION_TEXT = "**{streamer}** is live now!!\n**{url}**";
+const DEFAULT_YOUTUBE_NOTIFICATION_TEXT = "**{ytber}** upload a video!!\n**{url}**";
+
 const nowTs = () => Math.floor(Date.now() / 1000);
+
+const parseJsonArray = (value: string | null | undefined): string[] => {
+  if (!value) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter((item): item is string => typeof item === "string");
+  } catch {
+    return [];
+  }
+};
+
+const normalizeStringList = (values: unknown): string[] => {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  const result: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (typeof value !== "string") {
+      continue;
+    }
+    const trimmed = value.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    result.push(trimmed);
+  }
+  return result;
+};
+
+const normalizeChannelId = (value: unknown): string | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(Math.trunc(value));
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+};
+
+const ensureNotificationTables = (db: Database.Database) => {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS twitch_data (
+      server_id TEXT PRIMARY KEY,
+      twitch_notification_channel TEXT,
+      all_streamers TEXT NOT NULL DEFAULT '[]',
+      online_streamers TEXT NOT NULL DEFAULT '[]',
+      offline_streamers TEXT NOT NULL DEFAULT '[]',
+      twitch_notification_text TEXT NOT NULL DEFAULT '**{streamer}** is live now!!\\n**{url}**',
+      updated_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS youtube_data (
+      server_id TEXT PRIMARY KEY,
+      youtube_notification_text TEXT NOT NULL DEFAULT '**{ytber}** upload a video!!\\n**{url}**',
+      youtube_notification_channel TEXT,
+      updated_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS youtube_subscriptions (
+      server_id TEXT NOT NULL,
+      youtuber_id TEXT NOT NULL,
+      channel_name TEXT,
+      video_id TEXT,
+      stream_id TEXT,
+      short_id TEXT,
+      video_history TEXT NOT NULL DEFAULT '[]',
+      stream_history TEXT NOT NULL DEFAULT '[]',
+      short_history TEXT NOT NULL DEFAULT '[]',
+      updated_at INTEGER,
+      PRIMARY KEY (server_id, youtuber_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_twitch_data_server_id ON twitch_data(server_id);
+    CREATE INDEX IF NOT EXISTS idx_youtube_data_server_id ON youtube_data(server_id);
+    CREATE INDEX IF NOT EXISTS idx_youtube_subscriptions_server_id ON youtube_subscriptions(server_id);
+  `);
+
+  const columns = db
+    .prepare("PRAGMA table_info(youtube_subscriptions)")
+    .all() as Array<{ name: string }>;
+  const names = new Set(columns.map((column) => column.name));
+  if (!names.has("video_history")) {
+    db.exec("ALTER TABLE youtube_subscriptions ADD COLUMN video_history TEXT NOT NULL DEFAULT '[]'");
+  }
+  if (!names.has("stream_history")) {
+    db.exec("ALTER TABLE youtube_subscriptions ADD COLUMN stream_history TEXT NOT NULL DEFAULT '[]'");
+  }
+  if (!names.has("short_history")) {
+    db.exec("ALTER TABLE youtube_subscriptions ADD COLUMN short_history TEXT NOT NULL DEFAULT '[]'");
+  }
+};
 
 const ensureGuildSettingsDefaults = (db: Database.Database, serverId: string) => {
   const ts = nowTs();
@@ -225,4 +355,316 @@ export const upsertLogSettings = async (serverId: string, partial: LogSettingsRe
   });
 
   transaction(entries);
+};
+
+const ensureTwitchSettingsDefaults = (db: Database.Database, serverId: string) => {
+  const ts = nowTs();
+  db.prepare(
+    `
+      INSERT INTO twitch_data (
+        server_id,
+        twitch_notification_channel,
+        all_streamers,
+        online_streamers,
+        offline_streamers,
+        twitch_notification_text,
+        updated_at
+      )
+      VALUES (?, NULL, '[]', '[]', '[]', ?, ?)
+      ON CONFLICT(server_id) DO NOTHING
+    `
+  ).run(serverId, DEFAULT_TWITCH_NOTIFICATION_TEXT, ts);
+};
+
+const ensureYouTubeSettingsDefaults = (db: Database.Database, serverId: string) => {
+  const ts = nowTs();
+  db.prepare(
+    `
+      INSERT INTO youtube_data (
+        server_id,
+        youtube_notification_text,
+        youtube_notification_channel,
+        updated_at
+      )
+      VALUES (?, ?, NULL, ?)
+      ON CONFLICT(server_id) DO NOTHING
+    `
+  ).run(serverId, DEFAULT_YOUTUBE_NOTIFICATION_TEXT, ts);
+};
+
+const normalizeYouTubeSubscriptions = (values: unknown): YouTubeSubscriptionRecord[] => {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+
+  const result: YouTubeSubscriptionRecord[] = [];
+  const seen = new Set<string>();
+
+  for (const value of values) {
+    if (typeof value !== "object" || value === null) {
+      continue;
+    }
+    const record = value as Record<string, unknown>;
+    const id = typeof record.id === "string" ? record.id.trim() : "";
+    if (!id || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+
+    const name = typeof record.name === "string" && record.name.trim() ? record.name.trim() : id;
+    const videoId = typeof record.videoId === "string" ? record.videoId.trim() : "";
+    const streamId = typeof record.streamId === "string" ? record.streamId.trim() : "";
+    const shortId = typeof record.shortId === "string" ? record.shortId.trim() : "";
+    const videoHistory = normalizeStringList(record.videoHistory);
+    const streamHistory = normalizeStringList(record.streamHistory);
+    const shortHistory = normalizeStringList(record.shortHistory);
+
+    if (videoId && !videoHistory.includes(videoId)) {
+      videoHistory.push(videoId);
+    }
+    if (streamId && !streamHistory.includes(streamId)) {
+      streamHistory.push(streamId);
+    }
+    if (shortId && !shortHistory.includes(shortId)) {
+      shortHistory.push(shortId);
+    }
+
+    result.push({
+      id,
+      name,
+      videoId,
+      streamId,
+      shortId,
+      videoHistory,
+      streamHistory,
+      shortHistory
+    });
+  }
+
+  return result;
+};
+
+export const getTwitchSettings = async (serverId: string): Promise<TwitchSettingsRecord> => {
+  const db = getDb();
+  ensureTwitchSettingsDefaults(db, serverId);
+
+  const row = db
+    .prepare(
+      `
+        SELECT
+          twitch_notification_channel,
+          twitch_notification_text,
+          all_streamers,
+          online_streamers,
+          offline_streamers
+        FROM twitch_data
+        WHERE server_id = ?
+      `
+    )
+    .get(serverId) as
+    | {
+        twitch_notification_channel: string | null;
+        twitch_notification_text: string | null;
+        all_streamers: string | null;
+        online_streamers: string | null;
+        offline_streamers: string | null;
+      }
+    | undefined;
+
+  return {
+    TwitchNotificationChannel: row?.twitch_notification_channel ?? null,
+    TwitchNotificationText: row?.twitch_notification_text ?? DEFAULT_TWITCH_NOTIFICATION_TEXT,
+    AllStreamers: parseJsonArray(row?.all_streamers),
+    OnlineStreamers: parseJsonArray(row?.online_streamers),
+    OfflineStreamers: parseJsonArray(row?.offline_streamers)
+  };
+};
+
+export const upsertTwitchSettings = async (
+  serverId: string,
+  partial: Partial<TwitchSettingsRecord>
+) => {
+  const db = getDb();
+  ensureTwitchSettingsDefaults(db, serverId);
+
+  const updates: string[] = [];
+  const values: unknown[] = [];
+
+  if (partial.TwitchNotificationChannel !== undefined) {
+    updates.push("twitch_notification_channel = ?");
+    values.push(normalizeChannelId(partial.TwitchNotificationChannel));
+  }
+  if (partial.TwitchNotificationText !== undefined) {
+    updates.push("twitch_notification_text = ?");
+    values.push(partial.TwitchNotificationText.trim() || DEFAULT_TWITCH_NOTIFICATION_TEXT);
+  }
+  if (partial.AllStreamers !== undefined) {
+    updates.push("all_streamers = ?");
+    values.push(JSON.stringify(normalizeStringList(partial.AllStreamers)));
+  }
+  if (partial.OnlineStreamers !== undefined) {
+    updates.push("online_streamers = ?");
+    values.push(JSON.stringify(normalizeStringList(partial.OnlineStreamers)));
+  }
+  if (partial.OfflineStreamers !== undefined) {
+    updates.push("offline_streamers = ?");
+    values.push(JSON.stringify(normalizeStringList(partial.OfflineStreamers)));
+  }
+
+  if (updates.length === 0) {
+    return;
+  }
+
+  updates.push("updated_at = ?");
+  values.push(nowTs());
+  db.prepare(`UPDATE twitch_data SET ${updates.join(", ")} WHERE server_id = ?`).run(...values, serverId);
+};
+
+export const getYouTubeSettings = async (serverId: string): Promise<YouTubeSettingsRecord> => {
+  const db = getDb();
+  ensureYouTubeSettingsDefaults(db, serverId);
+
+  const row = db
+    .prepare(
+      `
+        SELECT
+          youtube_notification_text,
+          youtube_notification_channel
+        FROM youtube_data
+        WHERE server_id = ?
+      `
+    )
+    .get(serverId) as
+    | {
+        youtube_notification_text: string | null;
+        youtube_notification_channel: string | null;
+      }
+    | undefined;
+
+  const youtubers = db
+    .prepare(
+      `
+        SELECT
+          youtuber_id,
+          channel_name,
+          video_id,
+          stream_id,
+          short_id,
+          video_history,
+          stream_history,
+          short_history
+        FROM youtube_subscriptions
+        WHERE server_id = ?
+      `
+    )
+    .all(serverId) as Array<{
+    youtuber_id: string;
+    channel_name: string | null;
+    video_id: string | null;
+    stream_id: string | null;
+    short_id: string | null;
+    video_history: string | null;
+    stream_history: string | null;
+    short_history: string | null;
+  }>;
+
+  return {
+    YouTubeNotificationChannel: row?.youtube_notification_channel ?? null,
+    YouTubeNotificationText: row?.youtube_notification_text ?? DEFAULT_YOUTUBE_NOTIFICATION_TEXT,
+    YouTubers: youtubers.map((item) => {
+      const id = item.youtuber_id;
+      const videoHistory = parseJsonArray(item.video_history);
+      const streamHistory = parseJsonArray(item.stream_history);
+      const shortHistory = parseJsonArray(item.short_history);
+      const videoId = item.video_id ?? "";
+      const streamId = item.stream_id ?? "";
+      const shortId = item.short_id ?? "";
+      if (videoId && !videoHistory.includes(videoId)) {
+        videoHistory.push(videoId);
+      }
+      if (streamId && !streamHistory.includes(streamId)) {
+        streamHistory.push(streamId);
+      }
+      if (shortId && !shortHistory.includes(shortId)) {
+        shortHistory.push(shortId);
+      }
+      return {
+        id,
+        name: item.channel_name?.trim() || id,
+        videoId,
+        streamId,
+        shortId,
+        videoHistory,
+        streamHistory,
+        shortHistory
+      };
+    })
+  };
+};
+
+export const upsertYouTubeSettings = async (
+  serverId: string,
+  partial: Partial<YouTubeSettingsRecord>
+) => {
+  const db = getDb();
+  ensureYouTubeSettingsDefaults(db, serverId);
+  const ts = nowTs();
+
+  const updates: string[] = [];
+  const values: unknown[] = [];
+
+  if (partial.YouTubeNotificationText !== undefined) {
+    updates.push("youtube_notification_text = ?");
+    values.push(partial.YouTubeNotificationText.trim() || DEFAULT_YOUTUBE_NOTIFICATION_TEXT);
+  }
+  if (partial.YouTubeNotificationChannel !== undefined) {
+    updates.push("youtube_notification_channel = ?");
+    values.push(normalizeChannelId(partial.YouTubeNotificationChannel));
+  }
+
+  if (updates.length > 0) {
+    updates.push("updated_at = ?");
+    values.push(ts);
+    db.prepare(`UPDATE youtube_data SET ${updates.join(", ")} WHERE server_id = ?`).run(...values, serverId);
+  }
+
+  if (partial.YouTubers !== undefined) {
+    const normalized = normalizeYouTubeSubscriptions(partial.YouTubers);
+    const insertStatement = db.prepare(
+      `
+        INSERT INTO youtube_subscriptions (
+          server_id,
+          youtuber_id,
+          channel_name,
+          video_id,
+          stream_id,
+          short_id,
+          video_history,
+          stream_history,
+          short_history,
+          updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `
+    );
+
+    const transaction = db.transaction(() => {
+      db.prepare("DELETE FROM youtube_subscriptions WHERE server_id = ?").run(serverId);
+      for (const item of normalized) {
+        insertStatement.run(
+          serverId,
+          item.id,
+          item.name,
+          item.videoId,
+          item.streamId,
+          item.shortId,
+          JSON.stringify(item.videoHistory),
+          JSON.stringify(item.streamHistory),
+          JSON.stringify(item.shortHistory),
+          ts
+        );
+      }
+    });
+    transaction();
+  }
 };

@@ -34,6 +34,19 @@ const DEFAULT_LOG_SETTINGS: Record<string, boolean> = {
   voiceStateUpdate: false
 };
 const UNAVAILABLE_LOG_SETTING_KEYS = new Set(["messageDeleteBulk"]);
+const DEFAULT_TWITCH_NOTIFICATION_TEXT = "**{streamer}** is live now!!\n**{url}**";
+const DEFAULT_YOUTUBE_NOTIFICATION_TEXT = "**{ytber}** upload a video!!\n**{url}**";
+
+type YouTubeSubscription = {
+  id: string;
+  name: string;
+  videoId: string;
+  streamId: string;
+  shortId: string;
+  videoHistory: string[];
+  streamHistory: string[];
+  shortHistory: string[];
+};
 
 export default function Page() {
   const LOG_CHANNEL_TARGETS = [
@@ -71,6 +84,17 @@ export default function Page() {
     voiceLogId: ""
   });
   const [isSavingLogChannels, setIsSavingLogChannels] = React.useState(false);
+  const [twitchNotificationChannel, setTwitchNotificationChannel] = React.useState("");
+  const [twitchNotificationText, setTwitchNotificationText] = React.useState(DEFAULT_TWITCH_NOTIFICATION_TEXT);
+  const [twitchStreamers, setTwitchStreamers] = React.useState<string[]>([]);
+  const [newTwitchStreamer, setNewTwitchStreamer] = React.useState("");
+  const [isSavingTwitchSettings, setIsSavingTwitchSettings] = React.useState(false);
+  const [youtubeNotificationChannel, setYouTubeNotificationChannel] = React.useState("");
+  const [youtubeNotificationText, setYouTubeNotificationText] = React.useState(DEFAULT_YOUTUBE_NOTIFICATION_TEXT);
+  const [youtubeSubscriptions, setYouTubeSubscriptions] = React.useState<YouTubeSubscription[]>([]);
+  const [newYouTubeChannelInput, setNewYouTubeChannelInput] = React.useState("");
+  const [isResolvingYouTubeChannel, setIsResolvingYouTubeChannel] = React.useState(false);
+  const [isSavingYouTubeSettings, setIsSavingYouTubeSettings] = React.useState(false);
   const [isCheckingServerSelection, setIsCheckingServerSelection] = React.useState(false);
   const [showBotInviteModal, setShowBotInviteModal] = React.useState(false);
   const [botInviteUrl, setBotInviteUrl] = React.useState("");
@@ -358,6 +382,137 @@ export default function Page() {
     }
   };
 
+  const handleAddTwitchStreamer = () => {
+    const value = newTwitchStreamer.trim().toLowerCase();
+    if (!value) {
+      return;
+    }
+    if (twitchStreamers.includes(value)) {
+      toast.error("此 Twitch 使用者已在清單中");
+      return;
+    }
+    setTwitchStreamers((current) => [...current, value]);
+    setNewTwitchStreamer("");
+  };
+
+  const handleRemoveTwitchStreamer = (value: string) => {
+    setTwitchStreamers((current) => current.filter((item) => item !== value));
+  };
+
+  const handleSaveTwitchSettings = async () => {
+    if (!selectedServerId) {
+      return;
+    }
+
+    setIsSavingTwitchSettings(true);
+    try {
+      const response = await fetch(`/api/twitch-settings/${selectedServerId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          twitchNotificationChannel: twitchNotificationChannel || null,
+          twitchNotificationText,
+          allStreamers: twitchStreamers
+        })
+      });
+
+      if (!response.ok) {
+        toast.error("Twitch 設定儲存失敗");
+        return;
+      }
+      toast.success("Twitch 設定儲存成功");
+    } catch {
+      toast.error("Twitch 設定儲存失敗，請檢查網路後再試");
+    } finally {
+      setIsSavingTwitchSettings(false);
+    }
+  };
+
+  const handleAddYouTubeSubscription = async () => {
+    const input = newYouTubeChannelInput.trim();
+    if (!input) {
+      return;
+    }
+
+    setIsResolvingYouTubeChannel(true);
+    try {
+      const response = await fetch("/api/youtube-resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input })
+      });
+
+      const result = (await response.json()) as {
+        channelId?: unknown;
+        channelName?: unknown;
+        message?: unknown;
+      };
+
+      if (!response.ok || typeof result.channelId !== "string") {
+        toast.error(typeof result.message === "string" ? result.message : "無法解析 YouTube 頻道網址");
+        return;
+      }
+
+      const channelId = result.channelId;
+      if (youtubeSubscriptions.some((item) => item.id === channelId)) {
+        toast.error("此 YouTube 頻道已在清單中");
+        return;
+      }
+
+      setYouTubeSubscriptions((current) => [
+        ...current,
+        {
+          id: channelId,
+          name: typeof result.channelName === "string" && result.channelName ? result.channelName : channelId,
+          videoId: "",
+          streamId: "",
+          shortId: "",
+          videoHistory: [],
+          streamHistory: [],
+          shortHistory: []
+        }
+      ]);
+      setNewYouTubeChannelInput("");
+    } catch {
+      toast.error("無法解析 YouTube 頻道網址，請稍後再試");
+    } finally {
+      setIsResolvingYouTubeChannel(false);
+    }
+  };
+
+  const handleRemoveYouTubeSubscription = (channelId: string) => {
+    setYouTubeSubscriptions((current) => current.filter((item) => item.id !== channelId));
+  };
+
+  const handleSaveYouTubeSettings = async () => {
+    if (!selectedServerId) {
+      return;
+    }
+
+    setIsSavingYouTubeSettings(true);
+    try {
+      const response = await fetch(`/api/youtube-settings/${selectedServerId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          youtubeNotificationChannel: youtubeNotificationChannel || null,
+          youtubeNotificationText,
+          youtubers: youtubeSubscriptions
+        })
+      });
+
+      if (!response.ok) {
+        toast.error("YouTube 設定儲存失敗");
+        return;
+      }
+      toast.success("YouTube 設定儲存成功");
+    } catch {
+      toast.error("YouTube 設定儲存失敗，請檢查網路後再試");
+    } finally {
+      setIsSavingYouTubeSettings(false);
+    }
+  };
+
   const handleLoginClick = () => {
     void signIn("discord", { callbackUrl: "/" });
   };
@@ -483,6 +638,14 @@ export default function Page() {
         messageLogId: "",
         voiceLogId: ""
       });
+      setTwitchNotificationChannel("");
+      setTwitchNotificationText(DEFAULT_TWITCH_NOTIFICATION_TEXT);
+      setTwitchStreamers([]);
+      setNewTwitchStreamer("");
+      setYouTubeNotificationChannel("");
+      setYouTubeNotificationText(DEFAULT_YOUTUBE_NOTIFICATION_TEXT);
+      setYouTubeSubscriptions([]);
+      setNewYouTubeChannelInput("");
       return;
     }
 
@@ -650,6 +813,118 @@ export default function Page() {
     };
 
     void loadLogSettings();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedServerId]);
+
+  React.useEffect(() => {
+    if (!selectedServerId) {
+      setTwitchNotificationChannel("");
+      setTwitchNotificationText(DEFAULT_TWITCH_NOTIFICATION_TEXT);
+      setTwitchStreamers([]);
+      return;
+    }
+
+    let active = true;
+
+    const loadTwitchSettings = async () => {
+      const response = await fetch(`/api/twitch-settings/${selectedServerId}`, { method: "GET" });
+      if (!active || !response.ok) {
+        return;
+      }
+
+      const result = (await response.json()) as {
+        settings?: {
+          twitchNotificationChannel?: unknown;
+          twitchNotificationText?: unknown;
+          allStreamers?: unknown;
+        } | null;
+      };
+      const data = result.settings;
+      if (!data) {
+        return;
+      }
+
+      setTwitchNotificationChannel(typeof data.twitchNotificationChannel === "string" ? data.twitchNotificationChannel : "");
+      setTwitchNotificationText(
+        typeof data.twitchNotificationText === "string"
+          ? data.twitchNotificationText
+          : DEFAULT_TWITCH_NOTIFICATION_TEXT
+      );
+      setTwitchStreamers(
+        Array.isArray(data.allStreamers) ? data.allStreamers.filter((item): item is string => typeof item === "string") : []
+      );
+    };
+
+    void loadTwitchSettings();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedServerId]);
+
+  React.useEffect(() => {
+    if (!selectedServerId) {
+      setYouTubeNotificationChannel("");
+      setYouTubeNotificationText(DEFAULT_YOUTUBE_NOTIFICATION_TEXT);
+      setYouTubeSubscriptions([]);
+      return;
+    }
+
+    let active = true;
+
+    const loadYouTubeSettings = async () => {
+      const response = await fetch(`/api/youtube-settings/${selectedServerId}`, { method: "GET" });
+      if (!active || !response.ok) {
+        return;
+      }
+
+      const result = (await response.json()) as {
+        settings?: {
+          youtubeNotificationChannel?: unknown;
+          youtubeNotificationText?: unknown;
+          youtubers?: unknown;
+        } | null;
+      };
+      const data = result.settings;
+      if (!data) {
+        return;
+      }
+
+      setYouTubeNotificationChannel(typeof data.youtubeNotificationChannel === "string" ? data.youtubeNotificationChannel : "");
+      setYouTubeNotificationText(
+        typeof data.youtubeNotificationText === "string"
+          ? data.youtubeNotificationText
+          : DEFAULT_YOUTUBE_NOTIFICATION_TEXT
+      );
+      setYouTubeSubscriptions(
+        Array.isArray(data.youtubers)
+          ? data.youtubers
+              .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+              .map((item) => ({
+                id: typeof item.id === "string" ? item.id : "",
+                name: typeof item.name === "string" ? item.name : typeof item.id === "string" ? item.id : "",
+                videoId: typeof item.videoId === "string" ? item.videoId : "",
+                streamId: typeof item.streamId === "string" ? item.streamId : "",
+                shortId: typeof item.shortId === "string" ? item.shortId : "",
+                videoHistory: Array.isArray(item.videoHistory)
+                  ? item.videoHistory.filter((value): value is string => typeof value === "string")
+                  : [],
+                streamHistory: Array.isArray(item.streamHistory)
+                  ? item.streamHistory.filter((value): value is string => typeof value === "string")
+                  : [],
+                shortHistory: Array.isArray(item.shortHistory)
+                  ? item.shortHistory.filter((value): value is string => typeof value === "string")
+                  : []
+              }))
+              .filter((item) => item.id)
+          : []
+      );
+    };
+
+    void loadYouTubeSettings();
 
     return () => {
       active = false;
@@ -967,6 +1242,164 @@ export default function Page() {
                     <div className="flex justify-end pt-2">
                       <Button className="px-6" onClick={handleSaveLogSettings} disabled={isSavingLogSettings}>
                         {isSavingLogSettings ? "儲存中..." : "儲存所有設定"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {isAuthenticated && !showServerPicker && activeNavMain === "Twitch" && (
+                  <div className="mx-auto mt-8 w-full max-w-[66.666%] space-y-5">
+                    <h2 className="text-5xl font-semibold tracking-tight">Twitch</h2>
+                    <div className="bg-border h-px w-full" />
+                    <div className="rounded-xl border bg-card/40 p-4">
+                      <h3 className="text-base font-semibold">通知設定</h3>
+                      <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <p className="text-muted-foreground text-sm">通知頻道</p>
+                          <Select
+                            value={twitchNotificationChannel || "__none__"}
+                            onValueChange={(value) =>
+                              setTwitchNotificationChannel(value === "__none__" ? "" : value)
+                            }>
+                            <SelectTrigger className="!h-11 !w-full rounded-lg bg-background/40 text-sm">
+                              <SelectValue placeholder="請選擇頻道" />
+                            </SelectTrigger>
+                            <SelectContent position="popper" side="bottom" align="start" sideOffset={6}>
+                              <SelectItem value="__none__">不使用</SelectItem>
+                              {serverChannels.map((channel) => (
+                                <SelectItem key={channel.id} value={channel.id}>
+                                  #{channel.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-muted-foreground text-sm">通知訊息模板</p>
+                          <Input
+                            className="!h-11 rounded-lg bg-background/40 text-sm"
+                            value={twitchNotificationText}
+                            onChange={(event) => setTwitchNotificationText(event.target.value)}
+                            placeholder="例如：**{streamer}** is live now!! **{url}**"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border bg-card/40 p-4">
+                      <h3 className="text-base font-semibold">追蹤名單</h3>
+                      <div className="mt-3 flex gap-2">
+                        <Input
+                          className="!h-11 rounded-lg bg-background/40 text-sm"
+                          value={newTwitchStreamer}
+                          onChange={(event) => setNewTwitchStreamer(event.target.value)}
+                          placeholder="輸入 Twitch 帳號，例如 din4ni"
+                        />
+                        <Button className="px-5" onClick={handleAddTwitchStreamer}>
+                          新增
+                        </Button>
+                      </div>
+                      <div className="mt-4 space-y-2">
+                        {twitchStreamers.length === 0 && (
+                          <p className="text-muted-foreground text-sm">尚未加入任何 Twitch 帳號</p>
+                        )}
+                        {twitchStreamers.map((streamer) => (
+                          <div key={streamer} className="flex items-center justify-between rounded-md border px-3 py-2">
+                            <span className="text-sm">{streamer}</span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRemoveTwitchStreamer(streamer)}>
+                              移除
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-2">
+                      <Button className="px-6" onClick={handleSaveTwitchSettings} disabled={isSavingTwitchSettings}>
+                        {isSavingTwitchSettings ? "儲存中..." : "儲存 Twitch 設定"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {isAuthenticated && !showServerPicker && activeNavMain === "YouTube" && (
+                  <div className="mx-auto mt-8 w-full max-w-[66.666%] space-y-5">
+                    <h2 className="text-5xl font-semibold tracking-tight">YouTube</h2>
+                    <div className="bg-border h-px w-full" />
+                    <div className="rounded-xl border bg-card/40 p-4">
+                      <h3 className="text-base font-semibold">通知設定</h3>
+                      <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <p className="text-muted-foreground text-sm">通知頻道</p>
+                          <Select
+                            value={youtubeNotificationChannel || "__none__"}
+                            onValueChange={(value) =>
+                              setYouTubeNotificationChannel(value === "__none__" ? "" : value)
+                            }>
+                            <SelectTrigger className="!h-11 !w-full rounded-lg bg-background/40 text-sm">
+                              <SelectValue placeholder="請選擇頻道" />
+                            </SelectTrigger>
+                            <SelectContent position="popper" side="bottom" align="start" sideOffset={6}>
+                              <SelectItem value="__none__">不使用</SelectItem>
+                              {serverChannels.map((channel) => (
+                                <SelectItem key={channel.id} value={channel.id}>
+                                  #{channel.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-muted-foreground text-sm">通知訊息模板</p>
+                          <Input
+                            className="!h-11 rounded-lg bg-background/40 text-sm"
+                            value={youtubeNotificationText}
+                            onChange={(event) => setYouTubeNotificationText(event.target.value)}
+                            placeholder="例如：**{ytber}** upload a video!! **{url}**"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border bg-card/40 p-4">
+                      <h3 className="text-base font-semibold">追蹤頻道</h3>
+                      <div className="mt-3 flex gap-2">
+                        <Input
+                          className="!h-11 rounded-lg bg-background/40 text-sm"
+                          value={newYouTubeChannelInput}
+                          onChange={(event) => setNewYouTubeChannelInput(event.target.value)}
+                          placeholder="貼上 YouTube 頻道網址（例如 https://youtube.com/@name）"
+                        />
+                        <Button
+                          className="px-5"
+                          onClick={() => void handleAddYouTubeSubscription()}
+                          disabled={isResolvingYouTubeChannel}>
+                          {isResolvingYouTubeChannel ? "解析中..." : "新增"}
+                        </Button>
+                      </div>
+                      <div className="mt-4 space-y-2">
+                        {youtubeSubscriptions.length === 0 && (
+                          <p className="text-muted-foreground text-sm">尚未加入任何 YouTube 頻道</p>
+                        )}
+                        {youtubeSubscriptions.map((subscription) => (
+                          <div key={subscription.id} className="flex items-center justify-between rounded-md border px-3 py-2">
+                            <div>
+                              <p className="text-sm font-semibold">{subscription.name || subscription.id}</p>
+                              <p className="text-muted-foreground text-xs">{subscription.id}</p>
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRemoveYouTubeSubscription(subscription.id)}>
+                              移除
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-2">
+                      <Button className="px-6" onClick={handleSaveYouTubeSettings} disabled={isSavingYouTubeSettings}>
+                        {isSavingYouTubeSettings ? "儲存中..." : "儲存 YouTube 設定"}
                       </Button>
                     </div>
                   </div>

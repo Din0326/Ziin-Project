@@ -3,6 +3,8 @@
 import * as React from "react";
 import Image from "next/image";
 import {
+  IconBrandTwitch,
+  IconBrandYoutube,
   IconDashboard,
   IconListDetails
 } from "@tabler/icons-react";
@@ -34,6 +36,18 @@ const data = {
       title: "Log 系統",
       url: "#",
       icon: IconListDetails
+    }
+  ],
+  navNotifications: [
+    {
+      title: "Twitch",
+      url: "#",
+      icon: IconBrandTwitch
+    },
+    {
+      title: "YouTube",
+      url: "#",
+      icon: IconBrandYoutube
     }
   ],
 };
@@ -77,6 +91,7 @@ export function AppSidebar({
       <SidebarContent>
         <NavMain
           items={data.navMain}
+          notificationItems={data.navNotifications}
           activeTitle={activeNavMainTitle}
           onItemClick={onNavMainClick}
           onSwitchServer={onSwitchServer}

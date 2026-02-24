@@ -13,12 +13,18 @@ import {
 
 export function NavMain({
   items,
+  notificationItems = [],
   activeTitle,
   onItemClick,
   onSwitchServer,
   currentServerName
 }: {
   items: {
+    title: string;
+    url: string;
+    icon?: Icon;
+  }[];
+  notificationItems?: {
     title: string;
     url: string;
     icon?: Icon;
@@ -68,6 +74,25 @@ export function NavMain({
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
+        {notificationItems.length > 0 && (
+          <>
+            <SidebarGroupLabel className="mt-4">Notifications</SidebarGroupLabel>
+            <SidebarMenu>
+              {notificationItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    className="!h-12 gap-3"
+                    tooltip={item.title}
+                    isActive={item.title === activeTitle}
+                    onClick={() => onItemClick?.(item.title)}>
+                    {item.icon && <item.icon className="h-5 w-5" />}
+                    <span className="text-lg font-semibold tracking-wide">{item.title}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </>
+        )}
       </SidebarGroupContent>
     </SidebarGroup>
   );

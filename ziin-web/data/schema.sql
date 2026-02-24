@@ -46,6 +46,40 @@ CREATE TABLE IF NOT EXISTS user_voice_channel_stats (
   PRIMARY KEY (user_id, server_id, channel_id)
 );
 
+CREATE TABLE IF NOT EXISTS twitch_data (
+  server_id TEXT PRIMARY KEY,
+  twitch_notification_channel TEXT,
+  all_streamers TEXT NOT NULL DEFAULT '[]',
+  online_streamers TEXT NOT NULL DEFAULT '[]',
+  offline_streamers TEXT NOT NULL DEFAULT '[]',
+  twitch_notification_text TEXT NOT NULL DEFAULT '**{streamer}** is live now!!\n**{url}**',
+  updated_at INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS youtube_data (
+  server_id TEXT PRIMARY KEY,
+  youtube_notification_text TEXT NOT NULL DEFAULT '**{ytber}** upload a video!!\n**{url}**',
+  youtube_notification_channel TEXT,
+  updated_at INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS youtube_subscriptions (
+  server_id TEXT NOT NULL,
+  youtuber_id TEXT NOT NULL,
+  channel_name TEXT,
+  video_id TEXT,
+  stream_id TEXT,
+  short_id TEXT,
+  video_history TEXT NOT NULL DEFAULT '[]',
+  stream_history TEXT NOT NULL DEFAULT '[]',
+  short_history TEXT NOT NULL DEFAULT '[]',
+  updated_at INTEGER,
+  PRIMARY KEY (server_id, youtuber_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_log_settings_server_id ON log_settings(server_id);
 CREATE INDEX IF NOT EXISTS idx_user_guild_stats_server_id ON user_guild_stats(server_id);
 CREATE INDEX IF NOT EXISTS idx_user_voice_channel_stats_server_id ON user_voice_channel_stats(server_id);
+CREATE INDEX IF NOT EXISTS idx_twitch_data_server_id ON twitch_data(server_id);
+CREATE INDEX IF NOT EXISTS idx_youtube_data_server_id ON youtube_data(server_id);
+CREATE INDEX IF NOT EXISTS idx_youtube_subscriptions_server_id ON youtube_subscriptions(server_id);
