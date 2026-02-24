@@ -6,6 +6,7 @@ import re
 import typing
 
 import discord
+import requests
 from bot.core.classed import Cog_Extension
 from bot.services.channel_data import get_twitter_data, save_twitter_data, ensure_twitter_data
 from discord.ext import commands, tasks
@@ -42,6 +43,31 @@ def _append_unique_id(bucket: list[str], value: str) -> bool:
     return True
 
 
+def _resolve_user_meta_from_syndication(handle: str) -> tuple[str, str, str] | None:
+    url = f"https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names={handle}"
+    response = requests.get(
+        url,
+        timeout=20,
+        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+    )
+    response.raise_for_status()
+    rows = response.json()
+    if not isinstance(rows, list) or not rows:
+        return None
+
+    first = rows[0] if isinstance(rows[0], dict) else None
+    if not first:
+        return None
+
+    raw_id = first.get("id")
+    user_id = str(raw_id).strip() if raw_id is not None else ""
+    if not user_id:
+        return None
+    screen_name = str(first.get("screen_name") or handle).strip() or handle
+    display_name = str(first.get("name") or screen_name).strip() or screen_name
+    return user_id, screen_name, display_name
+
+
 class Twitter(Cog_Extension):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
@@ -58,15 +84,27 @@ class Twitter(Cog_Extension):
 
     async def _resolve_latest_tweet(self, handle: str) -> tuple[str, str, str] | None:
         client = await self._get_guest_client()
-        user = await client.get_user_by_screen_name(handle)
-        tweets = await client.get_user_tweets(user.id, count=1)
+        user_id = ""
+        screen_name = handle
+        display_name = handle
+
+        try:
+            user = await client.get_user_by_screen_name(handle)
+            user_id = str(user.id)
+            screen_name = getattr(user, "screen_name", handle) or handle
+            display_name = getattr(user, "name", handle) or handle
+        except Exception:
+            fallback = _resolve_user_meta_from_syndication(handle)
+            if not fallback:
+                raise
+            user_id, screen_name, display_name = fallback
+
+        tweets = await client.get_user_tweets(user_id, count=1)
         if not tweets:
             return None
 
         tweet = tweets[0]
         tweet_id = str(tweet.id)
-        screen_name = getattr(user, "screen_name", handle) or handle
-        display_name = getattr(user, "name", handle) or handle
         tweet_url = f"https://x.com/{screen_name}/status/{tweet_id}"
         return tweet_id, tweet_url, display_name
 
