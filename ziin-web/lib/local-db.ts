@@ -7,6 +7,10 @@ type GuildSettingsRecord = {
   Prefix?: string;
   TimeZone?: string;
   Language?: string;
+  GuildLogId?: string | null;
+  MemberLogId?: string | null;
+  MessageLogId?: string | null;
+  VoiceLogId?: string | null;
 };
 
 type LogSettingsRecord = Record<string, boolean>;
@@ -114,13 +118,29 @@ export const getServerSettings = async (serverId: string): Promise<GuildSettings
   const db = getDb();
   ensureGuildSettingsDefaults(db, serverId);
   const row = db
-    .prepare("SELECT prefix, timezone, language FROM guild_settings WHERE server_id = ?")
-    .get(serverId) as { prefix: string | null; timezone: string | null; language: string | null } | undefined;
+    .prepare(
+      "SELECT prefix, timezone, language, guild_log_id, member_log_id, message_log_id, voice_log_id FROM guild_settings WHERE server_id = ?"
+    )
+    .get(serverId) as
+    | {
+        prefix: string | null;
+        timezone: string | null;
+        language: string | null;
+        guild_log_id: string | null;
+        member_log_id: string | null;
+        message_log_id: string | null;
+        voice_log_id: string | null;
+      }
+    | undefined;
 
   return {
     Prefix: row?.prefix ?? DEFAULT_GUILD_SETTINGS.Prefix,
     TimeZone: row?.timezone ?? DEFAULT_GUILD_SETTINGS.TimeZone,
-    Language: row?.language ?? DEFAULT_GUILD_SETTINGS.Language
+    Language: row?.language ?? DEFAULT_GUILD_SETTINGS.Language,
+    GuildLogId: row?.guild_log_id ?? null,
+    MemberLogId: row?.member_log_id ?? null,
+    MessageLogId: row?.message_log_id ?? null,
+    VoiceLogId: row?.voice_log_id ?? null
   };
 };
 
@@ -141,6 +161,22 @@ export const upsertServerSettings = async (serverId: string, partial: GuildSetti
   if (partial.Language !== undefined) {
     updates.push("language = ?");
     values.push(partial.Language);
+  }
+  if (partial.GuildLogId !== undefined) {
+    updates.push("guild_log_id = ?");
+    values.push(partial.GuildLogId);
+  }
+  if (partial.MemberLogId !== undefined) {
+    updates.push("member_log_id = ?");
+    values.push(partial.MemberLogId);
+  }
+  if (partial.MessageLogId !== undefined) {
+    updates.push("message_log_id = ?");
+    values.push(partial.MessageLogId);
+  }
+  if (partial.VoiceLogId !== undefined) {
+    updates.push("voice_log_id = ?");
+    values.push(partial.VoiceLogId);
   }
 
   if (updates.length === 0) {

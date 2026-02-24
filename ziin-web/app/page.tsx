@@ -35,6 +35,13 @@ const DEFAULT_LOG_SETTINGS: Record<string, boolean> = {
 };
 
 export default function Page() {
+  const LOG_CHANNEL_TARGETS = [
+    { key: "memberLogId", label: "成員事件頻道" },
+    { key: "guildLogId", label: "伺服器事件頻道" },
+    { key: "messageLogId", label: "訊息事件頻道" },
+    { key: "voiceLogId", label: "語音事件頻道" }
+  ] as const;
+
   const [activeNavMain, setActiveNavMain] = React.useState("伺服器設定");
   const [managedServers, setManagedServers] = React.useState<
     { id: string; name: string; owner: boolean; iconUrl: string | null }[]
@@ -50,6 +57,19 @@ export default function Page() {
   const [isSavingLanguage, setIsSavingLanguage] = React.useState(false);
   const [logSettings, setLogSettings] = React.useState<Record<string, boolean>>(DEFAULT_LOG_SETTINGS);
   const [isSavingLogSettings, setIsSavingLogSettings] = React.useState(false);
+  const [serverChannels, setServerChannels] = React.useState<Array<{ id: string; name: string }>>([]);
+  const [logChannelTargets, setLogChannelTargets] = React.useState<{
+    memberLogId: string;
+    guildLogId: string;
+    messageLogId: string;
+    voiceLogId: string;
+  }>({
+    memberLogId: "",
+    guildLogId: "",
+    messageLogId: "",
+    voiceLogId: ""
+  });
+  const [isSavingLogChannels, setIsSavingLogChannels] = React.useState(false);
   const { data: session, status } = useSession();
   const currentServerName = managedServers.find((server) => server.id === selectedServerId)?.name;
   const timezoneOptions = React.useMemo(() => {
@@ -287,6 +307,48 @@ export default function Page() {
     }
   };
 
+  const handleSaveLogChannels = async () => {
+    if (!selectedServerId) {
+      return;
+    }
+
+    setIsSavingLogChannels(true);
+    try {
+      const response = await fetch(`/api/server-settings/${selectedServerId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guildLogId: logChannelTargets.guildLogId || null,
+          memberLogId: logChannelTargets.memberLogId || null,
+          messageLogId: logChannelTargets.messageLogId || null,
+          voiceLogId: logChannelTargets.voiceLogId || null
+        })
+      });
+
+      if (!response.ok) {
+        let errorMessage = "儲存失敗，請稍後再試";
+        try {
+          const errorData = (await response.json()) as { error?: unknown; message?: unknown };
+          if (typeof errorData.error === "string" && errorData.error) {
+            errorMessage = errorData.error;
+          } else if (typeof errorData.message === "string" && errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch {
+          // ignore response parse errors
+        }
+        toast.error(errorMessage);
+        return;
+      }
+
+      toast.success("Log 頻道儲存成功");
+    } catch {
+      toast.error("儲存失敗，請檢查網路後再試");
+    } finally {
+      setIsSavingLogChannels(false);
+    }
+  };
+
   const handleLoginClick = () => {
     void signIn("discord", { callbackUrl: "/" });
   };
@@ -363,6 +425,12 @@ export default function Page() {
       setSelectedTimezone(undefined);
       setTimezoneQuery("");
       setSelectedLanguage(undefined);
+      setLogChannelTargets({
+        memberLogId: "",
+        guildLogId: "",
+        messageLogId: "",
+        voiceLogId: ""
+      });
       return;
     }
 
@@ -377,6 +445,12 @@ export default function Page() {
         setSelectedTimezone(undefined);
         setTimezoneQuery("");
         setSelectedLanguage(undefined);
+        setLogChannelTargets({
+          memberLogId: "",
+          guildLogId: "",
+          messageLogId: "",
+          voiceLogId: ""
+        });
         return;
       }
 
@@ -385,6 +459,10 @@ export default function Page() {
           prefix?: unknown;
           timezone?: unknown;
           language?: unknown;
+          guildLogId?: unknown;
+          memberLogId?: unknown;
+          messageLogId?: unknown;
+          voiceLogId?: unknown;
         } | null;
       };
       const data = result.settings;
@@ -393,6 +471,12 @@ export default function Page() {
         setSelectedTimezone(undefined);
         setTimezoneQuery("");
         setSelectedLanguage(undefined);
+        setLogChannelTargets({
+          memberLogId: "",
+          guildLogId: "",
+          messageLogId: "",
+          voiceLogId: ""
+        });
         return;
       }
 
@@ -432,6 +516,13 @@ export default function Page() {
       } else {
         setSelectedLanguage(undefined);
       }
+
+      setLogChannelTargets({
+        guildLogId: typeof data.guildLogId === "string" ? data.guildLogId : "",
+        memberLogId: typeof data.memberLogId === "string" ? data.memberLogId : "",
+        messageLogId: typeof data.messageLogId === "string" ? data.messageLogId : "",
+        voiceLogId: typeof data.voiceLogId === "string" ? data.voiceLogId : ""
+      });
     };
 
     void loadServerSettings();
@@ -440,6 +531,38 @@ export default function Page() {
       active = false;
     };
   }, [selectedServerId, timezoneOptions]);
+
+  React.useEffect(() => {
+    if (!selectedServerId) {
+      setServerChannels([]);
+      return;
+    }
+
+    let active = true;
+
+    const loadChannels = async () => {
+      const response = await fetch(`/api/discord/guild-channels/${selectedServerId}`, {
+        method: "GET"
+      });
+
+      if (!active || !response.ok) {
+        setServerChannels([]);
+        return;
+      }
+
+      const result = (await response.json()) as {
+        channels?: Array<{ id: string; name: string }> | null;
+      };
+
+      setServerChannels(Array.isArray(result.channels) ? result.channels : []);
+    };
+
+    void loadChannels();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedServerId]);
 
   React.useEffect(() => {
     if (!selectedServerId) {
@@ -714,6 +837,41 @@ export default function Page() {
                   <div className="mx-auto mt-8 w-full max-w-[66.666%] space-y-5">
                     <h2 className="text-5xl font-semibold tracking-tight">Log 系統</h2>
                     <div className="bg-border h-px w-full" />
+                    <div className="rounded-xl border bg-card/40 p-4">
+                      <h3 className="text-base font-semibold">事件通知頻道</h3>
+                      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                        {LOG_CHANNEL_TARGETS.map((target) => (
+                          <div key={target.key} className="space-y-2">
+                            <p className="text-muted-foreground text-sm">{target.label}</p>
+                            <Select
+                              value={logChannelTargets[target.key] || "__none__"}
+                              onValueChange={(value) =>
+                                setLogChannelTargets((current) => ({
+                                  ...current,
+                                  [target.key]: value === "__none__" ? "" : value
+                                }))
+                              }>
+                              <SelectTrigger className="!h-11 !w-full rounded-lg bg-background/40 text-sm">
+                                <SelectValue placeholder="請選擇頻道" />
+                              </SelectTrigger>
+                              <SelectContent position="popper" side="bottom" align="start" sideOffset={6}>
+                                <SelectItem value="__none__">不使用</SelectItem>
+                                {serverChannels.map((channel) => (
+                                  <SelectItem key={channel.id} value={channel.id}>
+                                    #{channel.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-4 flex justify-end">
+                        <Button className="px-6" onClick={handleSaveLogChannels} disabled={isSavingLogChannels}>
+                          {isSavingLogChannels ? "儲存中..." : "儲存頻道設定"}
+                        </Button>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-1 gap-4 pt-4 xl:grid-cols-2">
                       {logSections.map((section) => (
                         <div key={section.title} className="rounded-xl border bg-card/40 p-4">

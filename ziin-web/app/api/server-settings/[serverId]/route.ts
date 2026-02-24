@@ -87,7 +87,11 @@ export async function GET(_: NextRequest, context: { params: Promise<{ serverId:
     settings: {
       prefix: data.Prefix ?? "",
       timezone: typeof data.TimeZone === "string" ? normalizeTimezoneLabel(data.TimeZone) : null,
-      language: data.Language ?? null
+      language: data.Language ?? null,
+      guildLogId: data.GuildLogId ?? null,
+      memberLogId: data.MemberLogId ?? null,
+      messageLogId: data.MessageLogId ?? null,
+      voiceLogId: data.VoiceLogId ?? null
     }
   });
 }
@@ -103,9 +107,21 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ ser
     prefix?: unknown;
     timezone?: unknown;
     language?: unknown;
+    guildLogId?: unknown;
+    memberLogId?: unknown;
+    messageLogId?: unknown;
+    voiceLogId?: unknown;
   };
 
-  const updateData: { Prefix?: string; TimeZone?: string; Language?: string } = {};
+  const updateData: {
+    Prefix?: string;
+    TimeZone?: string;
+    Language?: string;
+    GuildLogId?: string | null;
+    MemberLogId?: string | null;
+    MessageLogId?: string | null;
+    VoiceLogId?: string | null;
+  } = {};
 
   if (typeof payload.prefix === "string") {
     updateData.Prefix = payload.prefix.trim().slice(0, 32);
@@ -119,6 +135,37 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ ser
   }
   if (typeof payload.language === "string") {
     updateData.Language = payload.language;
+  }
+
+  const normalizeChannelId = (value: unknown) => {
+    if (value === null) {
+      return null;
+    }
+    if (typeof value !== "string") {
+      return undefined;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    return /^\d+$/.test(trimmed) ? trimmed : undefined;
+  };
+
+  const guildLogId = normalizeChannelId(payload.guildLogId);
+  const memberLogId = normalizeChannelId(payload.memberLogId);
+  const messageLogId = normalizeChannelId(payload.messageLogId);
+  const voiceLogId = normalizeChannelId(payload.voiceLogId);
+  if (guildLogId !== undefined) {
+    updateData.GuildLogId = guildLogId;
+  }
+  if (memberLogId !== undefined) {
+    updateData.MemberLogId = memberLogId;
+  }
+  if (messageLogId !== undefined) {
+    updateData.MessageLogId = messageLogId;
+  }
+  if (voiceLogId !== undefined) {
+    updateData.VoiceLogId = voiceLogId;
   }
 
   if (Object.keys(updateData).length === 0) {
