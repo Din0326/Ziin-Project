@@ -101,7 +101,63 @@ def _extract_tweets(payload: object) -> list[dict[str, object]]:
     return matches
 
 
-def _resolve_latest_tweet(handle: str) -> tuple[str, str, str] | None:
+def _extract_first_image_url(tweet: dict[str, object]) -> str:
+    media = tweet.get("media")
+    if isinstance(media, list):
+        for item in media:
+            if isinstance(item, dict):
+                value = item.get("url") or item.get("mediaUrl") or item.get("media_url_https") or item.get("media_url")
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+
+    photos = tweet.get("photos")
+    if isinstance(photos, list):
+        for item in photos:
+            if isinstance(item, dict):
+                value = item.get("url")
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+    return ""
+
+
+def _extract_first_video_url(tweet: dict[str, object]) -> str:
+    media = tweet.get("media")
+    if isinstance(media, list):
+        for item in media:
+            if not isinstance(item, dict):
+                continue
+
+            direct = item.get("videoUrl") or item.get("video_url")
+            if isinstance(direct, str) and direct.strip():
+                return direct.strip()
+
+            variants = item.get("variants")
+            if isinstance(variants, list):
+                for variant in variants:
+                    if not isinstance(variant, dict):
+                        continue
+                    content_type = variant.get("content_type") or variant.get("contentType")
+                    if isinstance(content_type, str) and "mp4" not in content_type.lower():
+                        continue
+                    url = variant.get("url")
+                    if isinstance(url, str) and url.strip():
+                        return url.strip()
+
+            url = item.get("url")
+            media_type = item.get("type")
+            if isinstance(media_type, str) and media_type.lower() in {"video", "animated_gif"}:
+                if isinstance(url, str) and url.strip():
+                    return url.strip()
+
+    video = tweet.get("video")
+    if isinstance(video, dict):
+        direct = video.get("url")
+        if isinstance(direct, str) and direct.strip():
+            return direct.strip()
+    return ""
+
+
+def _resolve_latest_tweet(handle: str) -> dict[str, str] | None:
     if not _TWITTERAPI_IO_KEY:
         raise RuntimeError("TWITTERAPI_IO_KEY is missing")
 
@@ -123,7 +179,7 @@ def _resolve_latest_tweet(handle: str) -> tuple[str, str, str] | None:
 
     first_raw = tweets[0]
     first = first_raw.get("tweet") if isinstance(first_raw.get("tweet"), dict) else first_raw
-    tweet_id_raw = first.get("id") or first.get("tweetId") or first.get("rest_id")
+    tweet_id_raw = first.get("id") or first.get("tweetId") or first.get("rest_id") or first.get("tweet_id")
     tweet_id = str(tweet_id_raw).strip() if tweet_id_raw is not None else ""
 
     author = first.get("author") if isinstance(first.get("author"), dict) else {}
@@ -141,6 +197,12 @@ def _resolve_latest_tweet(handle: str) -> tuple[str, str, str] | None:
 
     tweet_url_raw = first.get("url") or first.get("tweetUrl") or first.get("permanentUrl")
     tweet_url = str(tweet_url_raw).strip() if tweet_url_raw is not None else ""
+    tweet_text_raw = first.get("text") or first.get("fullText") or first.get("full_text")
+    tweet_text = str(tweet_text_raw).strip() if tweet_text_raw is not None else ""
+    created_at_raw = first.get("createdAt") or first.get("created_at")
+    created_at = str(created_at_raw).strip() if created_at_raw is not None else ""
+    image_url = _extract_first_image_url(first)
+    video_url = _extract_first_video_url(first)
 
     if not tweet_id and tweet_url:
         match = re.search(r"/status/(\d+)", tweet_url)
@@ -157,7 +219,16 @@ def _resolve_latest_tweet(handle: str) -> tuple[str, str, str] | None:
     _debug_twitter(
         f"twitterapi resolve ok handle={handle} tweet_id={tweet_id} screen_name={screen_name} display_name={display_name}"
     )
-    return tweet_id, tweet_url, display_name
+    return {
+        "tweet_id": tweet_id,
+        "tweet_url": tweet_url,
+        "display_name": display_name,
+        "screen_name": screen_name,
+        "text": tweet_text,
+        "created_at": created_at,
+        "image_url": image_url,
+        "video_url": video_url,
+    }
 
 
 class Twitter(Cog_Extension):
@@ -196,7 +267,14 @@ class Twitter(Cog_Extension):
                 if not latest:
                     continue
 
-                tweet_id, tweet_url, display_name = latest
+                tweet_id = latest["tweet_id"]
+                tweet_url = latest["tweet_url"]
+                display_name = latest["display_name"]
+                screen_name = latest["screen_name"]
+                tweet_text = latest["text"]
+                created_at = latest["created_at"]
+                image_url = latest["image_url"]
+                video_url = latest["video_url"]
                 history = item.setdefault("tweetHistory", [])
                 if not isinstance(history, list):
                     history = []
@@ -214,12 +292,28 @@ class Twitter(Cog_Extension):
                     continue
 
                 text = (
-                    guild_data.get("twitter_notification_text", "**{xuser}** posted a new tweet!\n**{url}**")
+                    guild_data.get("twitter_notification_text", "{xuser} 發文了，點進來看一下吧")
                     .replace("{xuser}", item["name"])
                     .replace("{url}", tweet_url)
                 )
+                embed = discord.Embed(
+                    title=f"{display_name} (@{screen_name})",
+                    url=tweet_url,
+                    description=tweet_text or None,
+                    color=discord.Color.from_rgb(240, 171, 252),
+                )
+                if image_url and not video_url:
+                    embed.set_image(url=image_url)
+                if video_url:
+                    embed.add_field(name="影片", value=video_url, inline=False)
+                embed.set_footer(text="X · Made by Ziin Bot")
+                parsed_time = discord.utils.parse_time(created_at) if created_at else None
+                embed.timestamp = parsed_time or discord.utils.utcnow()
                 try:
-                    await channel.send(text)
+                    message_parts = [text, tweet_url]
+                    if video_url:
+                        message_parts.append(video_url)
+                    await channel.send("\n".join(message_parts), embed=embed)
                     _debug_twitter(f"sent guild={guild.id} handle={handle} tweet={tweet_id}")
                 except Exception as exc:
                     _debug_twitter(f"send failed guild={guild.id} handle={handle} error={exc}")
