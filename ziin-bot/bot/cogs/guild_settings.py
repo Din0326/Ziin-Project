@@ -18,7 +18,7 @@ class GuildSettings(Cog_Extension):
     def __init__(self, bot: commands.Bot):
         super().__init__(bot)
         self._defaults_bootstrapped = False
-        self._debug = os.getenv("DEBUG_GUILD_SETTINGS", "1") == "1"
+        self._debug = os.getenv("DEBUG_GUILD_SETTINGS", "0") == "1"
         self._logger = logging.getLogger("__main__")
 
     def _debug_log(self, message: str) -> None:

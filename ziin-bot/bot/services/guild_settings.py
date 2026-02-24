@@ -10,7 +10,7 @@ from bot.services.storage import execute, fetchall, fetchone, now_ts
 from bot.utils.timezone import parse_utc_offset_hours
 
 logger = logging.getLogger("__main__")
-_DEBUG_GUILD_SETTINGS = os.getenv("DEBUG_GUILD_SETTINGS", "1") == "1"
+_DEBUG_GUILD_SETTINGS = os.getenv("DEBUG_GUILD_SETTINGS", "0") == "1"
 
 
 def _debug_gs(message: str) -> None:

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { IconMoon, IconSun } from "@tabler/icons-react";
+import { IconMoon, IconSun, IconX } from "@tabler/icons-react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
@@ -70,6 +70,10 @@ export default function Page() {
     voiceLogId: ""
   });
   const [isSavingLogChannels, setIsSavingLogChannels] = React.useState(false);
+  const [isCheckingServerSelection, setIsCheckingServerSelection] = React.useState(false);
+  const [showBotInviteModal, setShowBotInviteModal] = React.useState(false);
+  const [botInviteUrl, setBotInviteUrl] = React.useState("");
+  const [botInviteServerName, setBotInviteServerName] = React.useState("");
   const { data: session, status } = useSession();
   const currentServerName = managedServers.find((server) => server.id === selectedServerId)?.name;
   const timezoneOptions = React.useMemo(() => {
@@ -357,6 +361,37 @@ export default function Page() {
     void signOut({ callbackUrl: "/" });
   };
 
+  const handleServerSelect = async (server: { id: string; name: string }) => {
+    if (isCheckingServerSelection) {
+      return;
+    }
+
+    setIsCheckingServerSelection(true);
+    try {
+      const response = await fetch(`/api/discord/bot-membership/${server.id}`, { method: "GET" });
+      if (!response.ok) {
+        toast.error("伺服器驗證失敗，請稍後再試");
+        return;
+      }
+
+      const result = (await response.json()) as { inGuild?: unknown; inviteUrl?: unknown };
+      if (result.inGuild === false) {
+        setShowBotInviteModal(true);
+        setBotInviteUrl(typeof result.inviteUrl === "string" ? result.inviteUrl : "");
+        setBotInviteServerName(server.name);
+        return;
+      }
+
+      setShowBotInviteModal(false);
+      setSelectedServerId(server.id);
+      setActiveNavMain("伺服器設定");
+    } catch {
+      toast.error("伺服器驗證失敗，請稍後再試");
+    } finally {
+      setIsCheckingServerSelection(false);
+    }
+  };
+
   const isAuthenticated = status === "authenticated";
   const showServerPicker = status === "authenticated" && !selectedServerId;
   const [theme, setTheme] = React.useState<"light" | "dark">("light");
@@ -425,6 +460,9 @@ export default function Page() {
       setSelectedTimezone(undefined);
       setTimezoneQuery("");
       setSelectedLanguage(undefined);
+      setShowBotInviteModal(false);
+      setBotInviteUrl("");
+      setBotInviteServerName("");
       setLogChannelTargets({
         memberLogId: "",
         guildLogId: "",
@@ -672,9 +710,9 @@ export default function Page() {
                             key={server.id}
                             type="button"
                             className="group relative h-40 overflow-hidden rounded-2xl border text-left transition hover:scale-[1.01] hover:border-primary/60"
+                            disabled={isCheckingServerSelection}
                             onClick={() => {
-                              setSelectedServerId(server.id);
-                              setActiveNavMain("伺服器設定");
+                              void handleServerSelect(server);
                             }}>
                             <div
                               className="absolute inset-0 bg-slate-900"
@@ -907,6 +945,30 @@ export default function Page() {
             </div>
           </div>
         </div>
+        {showBotInviteModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
+            <div className="relative w-full max-w-xl rounded-2xl border bg-card px-8 py-9 shadow-2xl">
+              <button
+                type="button"
+                aria-label="關閉提示"
+                className="text-muted-foreground hover:text-foreground absolute top-4 right-4 rounded-md p-1"
+                onClick={() => setShowBotInviteModal(false)}>
+                <IconX className="size-5" />
+              </button>
+              <h3 className="text-center text-2xl font-semibold">機器人尚未加入伺服器</h3>
+              <p className="text-muted-foreground mt-4 text-center text-base leading-relaxed">
+                Ziin 尚未加入 {botInviteServerName} ，請先邀請機器人再進行設定。
+              </p>
+              <div className="mt-7 flex items-center justify-center gap-3">
+                <a href={botInviteUrl} target="_blank" rel="noreferrer">
+                  <Button className="h-12 px-8 text-base" disabled={!botInviteUrl}>
+                    邀請機器人
+                  </Button>
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
       </SidebarInset>
 
     </SidebarProvider>

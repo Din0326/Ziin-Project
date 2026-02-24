@@ -11,7 +11,7 @@ from typing import Any, Iterable, Optional
 _conn: Optional[sqlite3.Connection] = None
 _lock = RLock()
 logger = logging.getLogger("__main__")
-_DEBUG_SQL = os.getenv("DEBUG_SQL", "1") == "1"
+_DEBUG_SQL = os.getenv("DEBUG_SQL", "0") == "1"
 
 
 def _debug_sql(message: str) -> None:
