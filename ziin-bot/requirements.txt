@@ -7,3 +7,4 @@ psutil
 schedule
 requests
 urlextract
+twikit

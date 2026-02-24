@@ -4,19 +4,16 @@ import logging
 import os
 import re
 import typing
-import xml.etree.ElementTree as ET
 
 import discord
-import requests
 from bot.core.classed import Cog_Extension
 from bot.services.channel_data import get_twitter_data, save_twitter_data, ensure_twitter_data
 from discord.ext import commands, tasks
 from discord.ext.commands import has_permissions
+from twikit.guest import GuestClient
 
 logger = logging.getLogger("__main__")
 _DEBUG_TWITTER = os.getenv("DEBUG_TWITTER", "0") == "1"
-_NITTER_BASE_URL = (os.getenv("NITTER_BASE_URL", "https://nitter.net") or "https://nitter.net").rstrip("/")
-_STATUS_ID_RE = re.compile(r"/status/(\d+)")
 
 
 def _debug_twitter(message: str) -> None:
@@ -45,37 +42,34 @@ def _append_unique_id(bucket: list[str], value: str) -> bool:
     return True
 
 
-def _resolve_latest_tweet(handle: str) -> tuple[str, str, str] | None:
-    rss_url = f"{_NITTER_BASE_URL}/{handle}/rss"
-    response = requests.get(rss_url, timeout=20, headers={"User-Agent": "ZiinBot/1.0"})
-    response.raise_for_status()
-    root = ET.fromstring(response.text)
-    channel = root.find("channel")
-    if channel is None:
-        return None
-
-    item = channel.find("item")
-    if item is None:
-        return None
-
-    link = (item.findtext("link") or "").strip()
-    if not link:
-        return None
-
-    title = (item.findtext("title") or "").strip()
-    creator = (item.findtext("{http://purl.org/dc/elements/1.1/}creator") or "").strip()
-    display_name = creator.lstrip("@") if creator else handle
-    match = _STATUS_ID_RE.search(link)
-    if not match:
-        return None
-
-    tweet_id = match.group(1)
-    if not title:
-        title = "New tweet"
-    return tweet_id, link, display_name
-
-
 class Twitter(Cog_Extension):
+    def __init__(self, bot: commands.Bot):
+        super().__init__(bot)
+        self._guest: GuestClient | None = None
+        self._guest_ready = False
+
+    async def _get_guest_client(self) -> GuestClient:
+        if self._guest is None:
+            self._guest = GuestClient()
+        if not self._guest_ready:
+            await self._guest.activate()
+            self._guest_ready = True
+        return self._guest
+
+    async def _resolve_latest_tweet(self, handle: str) -> tuple[str, str, str] | None:
+        client = await self._get_guest_client()
+        user = await client.get_user_by_screen_name(handle)
+        tweets = await client.get_user_tweets(user.id, count=1)
+        if not tweets:
+            return None
+
+        tweet = tweets[0]
+        tweet_id = str(tweet.id)
+        screen_name = getattr(user, "screen_name", handle) or handle
+        display_name = getattr(user, "name", handle) or handle
+        tweet_url = f"https://x.com/{screen_name}/status/{tweet_id}"
+        return tweet_id, tweet_url, display_name
+
     @commands.Cog.listener()
     async def on_ready(self):
         if not self.check_twitter_posts.is_running():
@@ -85,7 +79,7 @@ class Twitter(Cog_Extension):
     async def on_guild_join(self, guild: discord.Guild):
         ensure_twitter_data(guild.id)
 
-    @tasks.loop(seconds=300)
+    @tasks.loop(seconds=600)
     async def check_twitter_posts(self):
         for guild in self.bot.guilds:
             guild_data = get_twitter_data(guild.id)
@@ -101,9 +95,10 @@ class Twitter(Cog_Extension):
                 if not isinstance(item, dict):
                     continue
                 try:
-                    latest = _resolve_latest_tweet(handle)
+                    latest = await self._resolve_latest_tweet(handle)
                 except Exception as exc:
                     _debug_twitter(f"fetch failed guild={guild.id} handle={handle} error={exc}")
+                    self._guest_ready = False
                     continue
 
                 if not latest:
