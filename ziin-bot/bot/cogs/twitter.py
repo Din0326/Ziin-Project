@@ -55,21 +55,50 @@ def _get_nested(data: object, *path: str) -> object:
 
 
 def _extract_tweets(payload: object) -> list[dict[str, object]]:
-    if isinstance(payload, list):
-        return [item for item in payload if isinstance(item, dict)]
-    if not isinstance(payload, dict):
+    direct_candidates: list[object] = []
+    if isinstance(payload, dict):
+        direct_candidates.extend(
+            [
+                payload.get("tweets"),
+                payload.get("data"),
+                _get_nested(payload, "result", "tweets"),
+                payload.get("result"),
+                _get_nested(payload, "timeline", "tweets"),
+            ]
+        )
+    elif isinstance(payload, list):
+        direct_candidates.append(payload)
+    else:
         return []
 
-    candidates = [
-        payload.get("tweets"),
-        payload.get("data"),
-        _get_nested(payload, "result", "tweets"),
-        payload.get("result"),
-    ]
-    for candidate in candidates:
+    for candidate in direct_candidates:
         if isinstance(candidate, list):
-            return [item for item in candidate if isinstance(item, dict)]
-    return []
+            rows = [item for item in candidate if isinstance(item, dict)]
+            if rows:
+                return rows
+
+    matches: list[dict[str, object]] = []
+
+    def _walk(node: object) -> None:
+        if isinstance(node, dict):
+            normalized = node.get("tweet")
+            if isinstance(normalized, dict):
+                node = normalized
+
+            if any(key in node for key in ("id", "tweetId", "rest_id")):
+                matches.append(node)
+                return
+
+            for value in node.values():
+                _walk(value)
+            return
+
+        if isinstance(node, list):
+            for item in node:
+                _walk(item)
+
+    _walk(payload)
+    return matches
 
 
 def _resolve_latest_tweet(handle: str) -> tuple[str, str, str] | None:
@@ -87,10 +116,13 @@ def _resolve_latest_tweet(handle: str) -> tuple[str, str, str] | None:
     payload = response.json()
     tweets = _extract_tweets(payload)
     if not tweets:
+        if isinstance(payload, dict):
+            _debug_twitter(f"twitterapi payload keys handle={handle} keys={list(payload.keys())}")
         _debug_twitter(f"twitterapi empty tweets handle={handle}")
         return None
 
-    first = tweets[0]
+    first_raw = tweets[0]
+    first = first_raw.get("tweet") if isinstance(first_raw.get("tweet"), dict) else first_raw
     tweet_id_raw = first.get("id") or first.get("tweetId") or first.get("rest_id")
     tweet_id = str(tweet_id_raw).strip() if tweet_id_raw is not None else ""
 
