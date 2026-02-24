@@ -35,18 +35,15 @@ const resolveBotClientId = async (botToken: string): Promise<string | null> => {
   return null;
 };
 
-const buildInviteUrl = (serverId: string, clientId: string, origin: string) => {
-  const baseUrl = process.env.NEXTAUTH_URL ?? origin;
+const buildInviteUrl = (serverId: string, clientId: string) => {
   const params = new URLSearchParams({
     client_id: clientId,
     permissions: "8",
-    response_type: "code",
-    redirect_uri: `${baseUrl}/api/auth/callback/discord`,
-    integration_type: "0",
-    scope: "bot applications.commands applications.commands.permissions.update",
+    scope: "bot applications.commands",
     guild_id: serverId,
     disable_guild_select: "true"
   });
+
   return `https://discord.com/oauth2/authorize?${params.toString()}`;
 };
 
@@ -87,6 +84,6 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ser
   const inGuild = response.ok;
   return NextResponse.json({
     inGuild,
-    inviteUrl: buildInviteUrl(serverId, botClientId, request.nextUrl.origin)
+    inviteUrl: buildInviteUrl(serverId, botClientId)
   });
 }

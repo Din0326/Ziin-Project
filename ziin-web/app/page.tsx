@@ -2017,11 +2017,42 @@ export default function Page() {
                 Ziin 尚未加入 {botInviteServerName} ，請先邀請機器人再進行設定。
               </p>
               <div className="mt-7 flex items-center justify-center gap-3">
-                <a href={botInviteUrl}>
-                  <Button className="h-12 px-8 text-base" disabled={!botInviteUrl}>
-                    邀請機器人
-                  </Button>
-                </a>
+                <Button
+                  className="h-12 px-8 text-base"
+                  disabled={!botInviteUrl}
+                  onClick={() => {
+                    if (!botInviteUrl) {
+                      return;
+                    }
+                    const width = 560;
+                    const height = 760;
+                    const left = Math.max(0, Math.floor(window.screenX + (window.outerWidth - width) / 2));
+                    const top = Math.max(0, Math.floor(window.screenY + (window.outerHeight - height) / 2));
+                    const popup = window.open(
+                      botInviteUrl,
+                      "ziinBotInvite",
+                      [
+                        "popup=yes",
+                        `width=${width}`,
+                        `height=${height}`,
+                        `left=${left}`,
+                        `top=${top}`,
+                        "menubar=no",
+                        "toolbar=no",
+                        "location=yes",
+                        "status=no",
+                        "scrollbars=yes",
+                        "resizable=yes",
+                        "noopener",
+                        "noreferrer"
+                      ].join(",")
+                    );
+                    if (!popup) {
+                      window.open(botInviteUrl, "_blank", "noopener,noreferrer");
+                    }
+                  }}>
+                  邀請機器人
+                </Button>
               </div>
             </div>
           </div>
