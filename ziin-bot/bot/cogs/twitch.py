@@ -55,7 +55,7 @@ def stream_check(usr: str, guild_data: dict, client_id: str, access_token: str):
             ).json()["data"][0]["profile_image_url"]
             if diff:
                 return r, usr_icon
-            return diff, usr_icon
+            return None
         return None
 
     if usr in guild_data["online_streamers"]:
@@ -80,7 +80,8 @@ def user_check(streamer: str, client_id: str, access_token: str):
 class Twitch(Cog_Extension):
     @commands.Cog.listener()
     async def on_ready(self):
-        self.check_online_twitch.start()
+        if not self.check_online_twitch.is_running():
+            self.check_online_twitch.start()
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):
@@ -107,6 +108,8 @@ class Twitch(Cog_Extension):
                     continue
 
                 r, usr_icon = result
+                if not isinstance(r, dict):
+                    continue
                 title = r["title"]
                 twitch_link = "https://www.twitch.tv/" + r["user_login"]
                 author_name = r["user_name"] + " 甇?撖行?銝迥!!"
