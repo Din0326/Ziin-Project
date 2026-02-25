@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 import logging
 import os
 import re
@@ -17,6 +18,7 @@ logger = logging.getLogger("__main__")
 _DEBUG_TWITTER = os.getenv("DEBUG_TWITTER", "0") == "1"
 _TWITTERAPI_IO_BASE = (os.getenv("TWITTERAPI_IO_BASE", "https://api.twitterapi.io") or "https://api.twitterapi.io").rstrip("/")
 _TWITTERAPI_IO_KEY = (os.getenv("TWITTERAPI_IO_KEY", "") or "").strip()
+_X_ICON_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/X_icon.svg/1200px-X_icon.svg.png"
 
 
 def _debug_twitter(message: str) -> None:
@@ -157,6 +159,47 @@ def _extract_first_video_url(tweet: dict[str, object]) -> str:
     return ""
 
 
+def _extract_profile_image_url(tweet: dict[str, object]) -> str:
+    author = tweet.get("author")
+    if isinstance(author, dict):
+        keys = ["profilePicture", "profile_image_url_https", "profile_image_url", "avatar", "avatarUrl"]
+        for key in keys:
+            value = author.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+    user = tweet.get("user")
+    if isinstance(user, dict):
+        keys = ["profile_image_url_https", "profile_image_url", "avatar", "avatarUrl"]
+        for key in keys:
+            value = user.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return ""
+
+
+def _clean_tweet_text(text: str) -> str:
+    if not text:
+        return ""
+    cleaned = re.sub(r"https?://t\.co/\S+", "", text).strip()
+    return cleaned
+
+
+def _parse_twitter_time(value: str) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = discord.utils.parse_time(value)
+        if parsed:
+            return parsed
+    except Exception:
+        pass
+    try:
+        return datetime.strptime(value, "%a %b %d %H:%M:%S %z %Y")
+    except Exception:
+        return None
+
+
 def _resolve_latest_tweet(handle: str) -> dict[str, str] | None:
     if not _TWITTERAPI_IO_KEY:
         raise RuntimeError("TWITTERAPI_IO_KEY is missing")
@@ -199,10 +242,12 @@ def _resolve_latest_tweet(handle: str) -> dict[str, str] | None:
     tweet_url = str(tweet_url_raw).strip() if tweet_url_raw is not None else ""
     tweet_text_raw = first.get("text") or first.get("fullText") or first.get("full_text")
     tweet_text = str(tweet_text_raw).strip() if tweet_text_raw is not None else ""
+    tweet_text = _clean_tweet_text(tweet_text)
     created_at_raw = first.get("createdAt") or first.get("created_at")
     created_at = str(created_at_raw).strip() if created_at_raw is not None else ""
     image_url = _extract_first_image_url(first)
     video_url = _extract_first_video_url(first)
+    profile_image_url = _extract_profile_image_url(first)
 
     if not tweet_id and tweet_url:
         match = re.search(r"/status/(\d+)", tweet_url)
@@ -228,6 +273,7 @@ def _resolve_latest_tweet(handle: str) -> dict[str, str] | None:
         "created_at": created_at,
         "image_url": image_url,
         "video_url": video_url,
+        "profile_image_url": profile_image_url,
     }
 
 
@@ -271,10 +317,11 @@ class Twitter(Cog_Extension):
                 tweet_url = latest["tweet_url"]
                 display_name = latest["display_name"]
                 screen_name = latest["screen_name"]
-                tweet_text = latest["text"]
+                tweet_text = re.sub(r'https://t\.co/\S+', '', latest["text"])
                 created_at = latest["created_at"]
                 image_url = latest["image_url"]
                 video_url = latest["video_url"]
+                profile_image_url = latest["profile_image_url"]
                 history = item.setdefault("tweetHistory", [])
                 if not isinstance(history, list):
                     history = []
@@ -293,26 +340,30 @@ class Twitter(Cog_Extension):
 
                 template = guild_data.get("twitter_notification_text")
                 if not isinstance(template, str) or not template:
-                    template = "{xuser} ???????????"
+                    template = "{xuser} 發文了，點進來看一下吧"
                 text = template.replace("{xuser}", item["name"]).replace("{url}", tweet_url)
                 embed = discord.Embed(
-                    title=f"{display_name} (@{screen_name})",
+                    title=" ",
                     url=tweet_url,
-                    description=tweet_text or None,
+                    description=f"\n{tweet_text}" if tweet_text else None,
                     color=discord.Color.from_rgb(240, 171, 252),
                 )
+                author_name = f"{display_name} (@{screen_name})"
+                author_url = f"https://x.com/{screen_name}"
+                if profile_image_url:
+                    embed.set_author(name=author_name, url=author_url, icon_url=profile_image_url)
+                    embed.set_thumbnail(url=profile_image_url)
+                else:
+                    embed.set_author(name=author_name, url=author_url)
                 if image_url and not video_url:
                     embed.set_image(url=image_url)
                 if video_url:
-                    embed.add_field(name="??", value=video_url, inline=False)
-                embed.set_footer(text="X ? Made by Ziin Bot")
-                parsed_time = None
-                if created_at:
-                    try:
-                        parsed_time = discord.utils.parse_time(created_at)
-                    except Exception as exc:
-                        _debug_twitter(f"parse created_at failed handle={handle} value={created_at!r} error={exc!r}")
-                embed.timestamp = parsed_time or discord.utils.utcnow()
+                    embed.add_field(name="Video", value=video_url, inline=False)
+                embed.set_footer(icon_url=_X_ICON_URL, text="X - Made by Din#0203")
+                parsed_time = _parse_twitter_time(created_at)
+                if not parsed_time and created_at:
+                    _debug_twitter(f"parse created_at failed handle={handle} value={created_at!r}")
+                embed.timestamp = parsed_time or datetime.now(tz=timezone(timedelta(hours=8)))
                 try:
                     message_parts = [text, tweet_url]
                     if video_url:
