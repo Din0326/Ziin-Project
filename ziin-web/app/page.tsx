@@ -1200,6 +1200,11 @@ export default function Page() {
       setSelectedTimezone(undefined);
       setTimezoneQuery("");
       setSelectedLanguage(undefined);
+      setSavedServerSettings({
+        prefix: "",
+        timezone: undefined,
+        language: undefined
+      });
       setShowBotInviteModal(false);
       setBotInviteUrl("");
       setBotInviteServerName("");
@@ -1214,17 +1219,39 @@ export default function Page() {
         messageLogId: "",
         voiceLogId: ""
       });
+      setSavedLogSettings(DEFAULT_LOG_SETTINGS);
+      setSavedLogChannelTargets({
+        memberLogId: "",
+        guildLogId: "",
+        messageLogId: "",
+        voiceLogId: ""
+      });
       setTwitchNotificationChannel("");
       setTwitchNotificationText(DEFAULT_TWITCH_NOTIFICATION_TEXT);
       setTwitchStreamers([]);
+      setSavedTwitchSettings({
+        channel: "",
+        text: DEFAULT_TWITCH_NOTIFICATION_TEXT,
+        streamers: []
+      });
       setNewTwitchStreamer("");
       setTwitterNotificationChannel("");
       setTwitterNotificationText(DEFAULT_TWITTER_NOTIFICATION_TEXT);
       setTwitterAccounts([]);
+      setSavedTwitterSettings({
+        channel: "",
+        text: DEFAULT_TWITTER_NOTIFICATION_TEXT,
+        accountIds: []
+      });
       setNewTwitterAccount("");
       setYouTubeNotificationChannel("");
       setYouTubeNotificationText(DEFAULT_YOUTUBE_NOTIFICATION_TEXT);
       setYouTubeSubscriptions([]);
+      setSavedYouTubeSettings({
+        channel: "",
+        text: DEFAULT_YOUTUBE_NOTIFICATION_TEXT,
+        subscriptionIds: []
+      });
       setNewYouTubeChannelInput("");
       return;
     }

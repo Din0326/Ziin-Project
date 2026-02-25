@@ -403,7 +403,10 @@ def _build_twitter_embed_message(
         embed.set_image(url=image_url)
     if video_url:
         embed.add_field(name="Video Link", value=f"[Watch Video]({video_url})", inline=False)
-    embed.set_footer(text="Made by dinnn._o")
+    embed.set_footer(
+        text="X - Made by dinnn._o",
+        icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/X_logo_2023.svg/1200px-X_logo_2023.svg.png",
+    )
     parsed_time = _parse_twitter_time(created_at)
     embed.timestamp = parsed_time or datetime.now(tz=timezone(timedelta(hours=8)))
     return text, embed
