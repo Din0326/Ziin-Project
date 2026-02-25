@@ -28,6 +28,21 @@ def _extract_tweets(payload: object) -> list[dict[str, object]]:
     return []
 
 
+def _tweet_author_handle(tweet: dict[str, object]) -> str:
+    author = tweet.get("author") if isinstance(tweet.get("author"), dict) else {}
+    return str(author.get("userName", "")).strip().lower().lstrip("@")
+
+
+def _is_retweet(tweet: dict[str, object]) -> bool:
+    text = str(tweet.get("text", "")).strip().lower()
+    if text.startswith("rt @"):
+        return True
+    for key in ("retweetedTweet", "retweeted_tweet", "retweeted_status", "retweetedStatus"):
+        if isinstance(tweet.get(key), dict):
+            return True
+    return False
+
+
 def _parse_time(value: str) -> datetime | None:
     if not value:
         return None
@@ -115,7 +130,7 @@ class TwitterMonitor(commands.Cog):
             f"from:{MONITOR_HANDLE} "
             f"since:{since_utc.strftime('%Y-%m-%d_%H:%M:%S_UTC')} "
             f"until:{now_utc.strftime('%Y-%m-%d_%H:%M:%S_UTC')} "
-            "include:nativeretweets"
+            "-is:retweet"
         )
         response = requests.get(
             f"{self.bot.settings.twitterapi_io_base}/twitter/tweet/advanced_search",
@@ -129,7 +144,15 @@ class TwitterMonitor(commands.Cog):
         tweets = _extract_tweets(response.json())
         if not tweets:
             return None
-        return tweets[0]
+
+        monitor = MONITOR_HANDLE.lower().lstrip("@")
+        for tweet in tweets:
+            if _tweet_author_handle(tweet) != monitor:
+                continue
+            if _is_retweet(tweet):
+                continue
+            return tweet
+        return None
 
     @tasks.loop(seconds=600)
     async def check_tweet(self) -> None:

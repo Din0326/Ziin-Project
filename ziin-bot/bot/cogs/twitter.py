@@ -102,6 +102,28 @@ def _extract_tweets(payload: object) -> list[dict[str, object]]:
     return matches
 
 
+def _tweet_author_handle(tweet: dict[str, object]) -> str:
+    author = tweet.get("author") if isinstance(tweet.get("author"), dict) else {}
+    raw = (
+        author.get("userName")
+        or author.get("username")
+        or tweet.get("userName")
+        or tweet.get("screenName")
+        or ""
+    )
+    return _normalize_handle(str(raw)) if isinstance(raw, str) else ""
+
+
+def _is_retweet(tweet: dict[str, object]) -> bool:
+    text = str(tweet.get("text") or tweet.get("fullText") or tweet.get("full_text") or "").strip().lower()
+    if text.startswith("rt @"):
+        return True
+    for key in ("retweetedTweet", "retweeted_tweet", "retweeted_status", "retweetedStatus"):
+        if isinstance(tweet.get(key), dict):
+            return True
+    return False
+
+
 def _extract_first_image_url(tweet: dict[str, object]) -> str:
     media = tweet.get("media")
     if isinstance(media, list):
@@ -259,7 +281,7 @@ def _resolve_latest_tweet(handle: str, since_utc: datetime, until_utc: datetime)
         f"from:{handle} "
         f"since:{_format_advanced_search_time(since_utc)} "
         f"until:{_format_advanced_search_time(until_utc)} "
-        "include:nativeretweets"
+        "-is:retweet"
     )
     params = {"query": query, "queryType": "Latest"}
 
@@ -275,8 +297,23 @@ def _resolve_latest_tweet(handle: str, since_utc: datetime, until_utc: datetime)
         _debug_twitter(f"twitterapi empty tweets handle={handle}")
         return None
 
-    first_raw = tweets[0]
-    first = first_raw.get("tweet") if isinstance(first_raw.get("tweet"), dict) else first_raw
+    monitor = _normalize_handle(handle)
+    first: dict[str, object] | None = None
+    for row in tweets:
+        candidate = row.get("tweet") if isinstance(row.get("tweet"), dict) else row
+        if not isinstance(candidate, dict):
+            continue
+        if _is_retweet(candidate):
+            continue
+        if _tweet_author_handle(candidate) != monitor:
+            continue
+        first = candidate
+        break
+
+    if first is None:
+        _debug_twitter(f"twitterapi no matched tweet handle={handle}")
+        return None
+
     tweet_id_raw = first.get("id") or first.get("tweetId") or first.get("rest_id") or first.get("tweet_id")
     tweet_id = str(tweet_id_raw).strip() if tweet_id_raw is not None else ""
 
