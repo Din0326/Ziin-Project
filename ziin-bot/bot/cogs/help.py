@@ -1,10 +1,11 @@
 ﻿from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 
 import discord
-from discord import app_commands
 from bot.services.guild_settings import get_guild_settings
+from discord import app_commands
 from discord.ext import commands
 
 
@@ -115,13 +116,21 @@ class Help(commands.Cog):
         embed.set_footer(text="Ziin Help Center")
         return embed
 
-    def _build_overview_embed(self, prefix: str, categories: list[HelpCategory]) -> discord.Embed:
+    def _build_overview_embed(
+        self,
+        prefix: str,
+        categories: list[HelpCategory],
+        guild_name: str,
+        dashboard_url: str,
+        support_url: str,
+    ) -> discord.Embed:
         embed = self._with_common_style(
             discord.Embed(
                 title="Ziin Help",
                 description=(
-                    "互動式指令說明面板\n"
-                    f"前綴：`{prefix}`  |  Slash：`/help`\n"
+                    f"{guild_name} prefix is `{prefix}`\n"
+                    f"控制板 {dashboard_url}\n"
+                    f"官方群組 {support_url}\n\n"
                     "使用 `/help 指令名` 可直接查詢單一指令。"
                 ),
             )
@@ -181,6 +190,10 @@ class Help(commands.Cog):
     @app_commands.describe(command_name="要查詢的指令名稱（可留空）")
     async def help(self, ctx: commands.Context, command_name: str | None = None):
         prefix = await self._resolve_prefix(ctx)
+        base_url = (os.getenv("WEB_DASHBOARD_URL") or os.getenv("NEXTAUTH_URL") or "http://localhost:6001").rstrip("/")
+        dashboard_url = base_url if base_url.endswith("/dashboard") else f"{base_url}/dashboard"
+        support_url = os.getenv("SUPPORT_SERVER_URL", "https://discord.gg/EtQX9RB9Xr")
+        guild_name = ctx.guild.name if ctx.guild else "DM"
 
         if command_name:
             target = self.bot.get_command(command_name.lower())
@@ -191,7 +204,7 @@ class Help(commands.Cog):
             return
 
         categories = self._grouped_commands()
-        overview = self._build_overview_embed(prefix, categories)
+        overview = self._build_overview_embed(prefix, categories, guild_name, dashboard_url, support_url)
         pages = self._build_category_pages(prefix, categories)
         view = HelpView(overview, categories, pages)
         await ctx.send(embed=overview, view=view)
