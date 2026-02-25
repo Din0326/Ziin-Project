@@ -168,11 +168,7 @@ export default function HomePage() {
           <span className="text-2xl font-semibold tracking-tight">Ziin Bot</span>
         </Link>
 
-        <nav className="hidden items-center gap-8 text-sm font-semibold text-slate-300 md:flex">
-          <a href="#features" className="transition hover:text-white">Log Features</a>
-          <a href="#scenes" className="transition hover:text-white">Use Cases</a>
-          <a href="#social" className="text-amber-300 transition hover:text-amber-200">Social Alerts</a>
-        </nav>
+        <div className="hidden md:block" />
 
         <div className="relative flex items-center gap-2">
           {isAuthenticated ? (
@@ -226,18 +222,21 @@ export default function HomePage() {
 
       <section className="relative z-10 mx-auto flex min-h-[78vh] w-full max-w-3xl flex-col items-center justify-center px-6 text-center">
         <span className="mb-6 rounded-full border border-indigo-400/40 bg-indigo-500/10 px-5 py-2 text-sm font-semibold text-indigo-200">
-          Core: Discord Log System
+          核心功能：Discord 紀錄系統
         </span>
 
         <h1 className="text-5xl font-semibold leading-tight tracking-tight md:text-7xl">
-          Build A Professional
+          打造專業的
           <br />
-          Server Log Center
+          Discord 伺服器
+          <br />
+          紀錄中心
         </h1>
 
         <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300 md:text-xl">
-          Ziin focuses on detailed, channel-based event logs: member actions, message edits/deletes,
-          role updates, voice activity, plus Twitch / YouTube / X notifications in one dashboard.
+          Ziin 專注於完整且細緻的伺服器事件紀錄：
+          成員動態、訊息編輯與刪除、身分組變更、語音活動，
+          並整合 Twitch / YouTube / X 通知，集中在同一個控制面板管理。
         </p>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
@@ -246,14 +245,14 @@ export default function HomePage() {
             onClick={handleInviteClick}
             className="rounded-xl bg-indigo-400 px-8 py-3 text-base font-semibold text-slate-950 transition hover:bg-indigo-300"
           >
-            Add Ziin To Discord
+            邀請 Ziin
           </button>
           <button
             type="button"
             onClick={() => void handleDashboardClick()}
             className="rounded-xl border border-white/20 bg-white/5 px-8 py-3 text-base font-semibold transition hover:bg-white/10"
           >
-            Dashboard
+            前往控制台
           </button>
         </div>
       </section>
