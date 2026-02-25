@@ -80,7 +80,7 @@ class ZiinBot(commands.Bot):
     async def on_ready(self) -> None:
         log.info("Logged in as %s (%s)", self.user, self.user.id if self.user else "unknown")
         await self.change_presence(
-            activity=discord.Activity(type=discord.ActivityType.playing, name=f"??{self.settings.default_prefix}help ??/help")
+            activity=discord.Activity(type=discord.ActivityType.playing, name=f"/help | ziin.pro | Best Log System")
         )
 
 
