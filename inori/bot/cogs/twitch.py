@@ -113,7 +113,10 @@ class TwitchMonitor(commands.Cog):
         embed = discord.Embed(title=title, url=url, color=discord.Color.from_rgb(145, 70, 255))
         if thumb:
             embed.set_image(url=thumb)
-        embed.set_footer(text="Made by dinnn._o")
+        embed.set_footer(
+            text="Made by dinnn._o",
+            icon_url="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png",
+        )
         await channel.send(f"<@&1279866353519558767> 垂耳兔睡醒祈床嚕ദ്ദി₍ᐢ. ̫.ᐢ₎\n{url}", embed=embed)
         self.bot.state.set(STATE_KEY, stream_id)
 

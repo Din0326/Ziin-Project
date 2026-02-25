@@ -134,7 +134,10 @@ class Twitch(Cog_Extension):
             embed.set_thumbnail(url=usr_icon)
         if thumbnail:
             embed.set_image(url=thumbnail)
-        embed.set_footer(text="Made by dinnn._o")
+        embed.set_footer(
+            text="Made by dinnn._o",
+            icon_url="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png",
+        )
         return embed
 
     @commands.Cog.listener()
