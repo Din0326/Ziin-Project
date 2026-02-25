@@ -50,17 +50,17 @@ export default function HomePage() {
   }, [router]);
 
   React.useEffect(() => {
-    const handleMessage = async (event: MessageEvent) => {
+    const handleMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) {
         return;
       }
       if (!event.data || event.data.type !== "ziin-auth-finished") {
         return;
       }
-      await syncSessionAfterAuth();
+      void syncSessionAfterAuth();
     };
-    window.addEventListener("message", handleMessage as EventListener);
-    return () => window.removeEventListener("message", handleMessage as EventListener);
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
   }, [syncSessionAfterAuth]);
 
   React.useEffect(() => {
