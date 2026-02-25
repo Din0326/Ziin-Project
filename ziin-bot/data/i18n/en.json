@@ -5,7 +5,7 @@
 	"bot_title":"Bot stats",
 	"bot_version":"Bot version",
 	"bot_py-version":"Python",
-	"bot_d.py-version":"Pycord",
+	"bot_d.py-version":"discord.py",
 	"bot_online-time":"Online time",
 	"bot_Ram":"Ram",
 	"bot_Guilds":"Guilds",

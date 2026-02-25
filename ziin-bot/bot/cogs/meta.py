@@ -1,3 +1,4 @@
+﻿import os
 import time
 from datetime import datetime, timedelta
 from platform import python_version
@@ -20,10 +21,10 @@ class Meta(Cog_Extension):
 	def message(self):
 		return self._message.format(users=len(self.bot.users), guilds=len(self.bot.guilds))
 
-	@message.setter
-	def message(self, value):
-		if value.split(" ")[0] not in ("playing", "watching", "listening", "streaming", "competing"):
-			raise ValueError("Invalid activity type.")
+		@message.setter
+		def message(self, value):
+			if value.split(" ")[0] not in ("playing", "watching", "listening", "streaming", "competing"):
+				raise ValueError("無效的活動類型。")
 
 		self._message = value
 
@@ -34,29 +35,29 @@ class Meta(Cog_Extension):
 			name=_name, type=getattr(ActivityType, _type, ActivityType.playing)
 		))
 
-	@commands.hybrid_command(aliases=["???????","play3"],hidden=True, with_app_command=True)
+	@commands.hybrid_command(aliases=["設定狀態","play3"], hidden=True, with_app_command=True)
 	async def setactivity(self, ctx: commands.Context, *, text: str):
-			user = self.bot.get_user(371871742916034561)
-			self.message = f"{text}"
-			if ctx.author == user:
-				await self.set()
-			else:
-				await ctx.send("You are not allowed to use this command.")
+		user = self.bot.get_user(371871742916034561)
+		self.message = f"{text}"
+		if ctx.author == user:
+			await self.set()
+		else:
+			await ctx.send("你沒有權限使用這個指令。")
 
 	@commands.hybrid_command(
 		aliases=["vt", "語音紀錄", "語音追蹤"],
 		with_app_command=True,
 		description="查看成員語音進出紀錄",
-		help="查看指定成員在各語音頻道的加入、離開與停留時間紀錄。\n用法：voicetrack [成員]"
+		help="查看指定成員在各語音頻道的加入、離開與停留時間。\n用法：voicetrack [成員]"
 	)
 	async def voicetrack(self, ctx: commands.Context, target: Optional[Member]):
-		load_Msg = await ctx.send("loading data... <a:load:854870818982723604> ")
+		load_Msg = await ctx.send("讀取資料中... <a:load:854870818982723604> ")
 		await ctx.trigger_typing()
 		target = target or ctx.author
 		dt_format = "%d-%m-%Y %H:%M:%S"
 		user_img = ctx.author.avatar or ctx.author.default_avatar
 		#time = time.strftime(dt_format)
-		embed = discord.Embed(title=f"{target.name}'s Voicetrack",
+		embed = discord.Embed(title=f"{target.name} 的語音紀錄",
 							  colour=ctx.author.colour,
 							  timestamp=datetime.utcnow())
 		#embed.set_author(name=f"{target.name}'s Voicetrack", icon_url=target.avatar.url)
@@ -68,14 +69,14 @@ class Meta(Cog_Extension):
 				time_join = doce.get('Join')
 				time_leave = doce.get('Leave')
 				if time_leave == None:
-					time_leave = time_total = "N/A"
+					time_leave = time_total = "無"
 				else:
 					if datetime.strptime(time_leave,dt_format) < datetime.strptime(time_join,dt_format):
-						time_total = "Invalid time data"
+						time_total = "時間資料異常"
 					else:
 						time_total = datetime.strptime(time_leave,dt_format) - datetime.strptime(time_join,dt_format)
 					ch_name = self.bot.get_channel(ctx.guild.voice_channels[x].id).name
-			fields=[(ctx.guild.voice_channels[x].name,f"Join: {time_join}\nLeave: {time_leave}\nTotal: {time_total}",False)]
+			fields=[(ctx.guild.voice_channels[x].name,f"加入：{time_join}\n離開：{time_leave}\n總時長：{time_total}",False)]
 			for name, value, inline in fields:
 				embed.add_field(name=name, value=value, inline=inline)
 		await ctx.send(embed=embed)
@@ -83,14 +84,14 @@ class Meta(Cog_Extension):
 	@commands.hybrid_command(
 		aliases=["lb", "top", "排行", "排行榜"],
 		with_app_command=True,
-		description="顯示伺服器貢獻排行榜",
+		description="查看伺服器貢獻排行榜",
 		help="顯示伺服器成員貢獻度前十名。\n用法：leaderboard"
 	)
 	async def leaderboard(self, ctx: commands.Context):
 		total = []
 		data_list = []
 		leaderboard = {}
-		load_msg = await ctx.send("<a:load:854870818982723604> searching... <a:load:854870818982723604>")
+		load_msg = await ctx.send("<a:load:854870818982723604> 查詢中... <a:load:854870818982723604>")
 		for user in ctx.guild.members:
 			if user.bot:
 				continue
@@ -102,8 +103,8 @@ class Meta(Cog_Extension):
 			total.append(contribution)
 		total = sorted(total, reverse=True)
 		lb_list = {k: v for k, v in sorted(leaderboard.items(), key=lambda item: item[1],reverse=True)}
-		embed_title = ctx.guild.name + " ?????????ㄞ?"
-		embed_description = f"**1 ~ 10 ??*"
+		embed_title = f"{ctx.guild.name} 貢獻排行榜"
+		embed_description = "**前 1 ~ 10 名**"
 		embed = discord.Embed(title=embed_title,
 						   description=embed_description,
 						   color=ctx.author.colour)
@@ -114,7 +115,7 @@ class Meta(Cog_Extension):
 				usr = self.bot.get_user(int(i))
 				if usr == None:
 					continue
-				embed.add_field(name=f"{num}.", value=f"{usr.mention}\n**{lb_list[i]}** ?蹎抆??", inline=True)
+				embed.add_field(name=f"{num}.", value=f"{usr.mention}\n**{lb_list[i]}** 分", inline=True)
 				if num == 1:
 					embed.add_field(name="\u200b",value="\u200b",inline=True)
 					embed.add_field(name="\u200b",value="\u200b",inline=True)
@@ -125,93 +126,10 @@ class Meta(Cog_Extension):
 		await ctx.send(embed=embed)
 
 	@commands.hybrid_command(
-		aliases=["link", "邀請", "邀請連結", "pingulink"],
-		with_app_command=True,
-		description="取得機器人邀請連結",
-		help="顯示 Ziin Bot 邀請連結與支援伺服器資訊。\n用法：botlink"
-	)
-	async def botlink(self, ctx: commands.Context):
-		user = self.bot.get_user(371871742916034561)
-		user_img =user.avatar or user.default_avatar
-		embed = discord.Embed(title=f"{self.bot.user.name} ???嚚?????蝬??!", url="https://discord.com/api/oauth2/authorize?client_id=616799674396967003&permissions=8&scope=bot")
-		embed.set_author(name=self.bot.user, icon_url=self.bot.user.avatar.url)
-		embed.set_thumbnail(url=self.bot.user.avatar.url)
-		embed.set_footer(icon_url=(user_img.url),text=f'{user}')
-		fields = [("Owner?????????????格???謕?", "**dinnn._o??????????z!**\n\n???嚚?ot???蝘??豯??????????謍??頛舀???罪g?鞈對??  \n???嚚???嚚????? z!help ??對?????????蟡???????賃ㄞ???蟡遜?????嚚??????[Support Server](https://discord.gg/EtQX9RB9Xr)", True)]
-
-		for name, value, inline in fields:
-			embed.add_field(name=name, value=value, inline=inline)
-		await ctx.send(embed=embed)
-
-	# @commands.hybrid_command(with_app_command=True)
-	# async def help(self, ctx: commands.Context, title: typing.Optional[str] = None):
-	# 	title = title or None
-	# 	Lang , guild_tz = get_ctx_lang_tz(ctx)
-	# 	data = get_guild_context(ctx.guild.id).settings
-	# 	prefix = data.get('Prefix')
-	# 	help_list = ['basic','guild','admin','log']
-	# 	if title == None or title.lower() not in help_list:
-	# 		embed = Embed(title=Lang["help_title"],
-	# 				description=Lang["help_description"].format(prefix),
-	# 				colour=ctx.author.colour,
-	# 				timestamp=datetime.utcnow())
-	# 		embed.add_field(name=Lang["help_basic"], value="`{0}link`,`{0}ui`,`{0}avatar`,`{0}spotify`,`{0}ri`,`{0}gi`,`{0}stats`,`{0}ping`,`{0}voicetrack`".format(prefix), inline=False)
-	# 		embed.add_field(name=Lang["help_guild"], value="`{0}timezone`,`{0}language`,`{0}prefix`".format(prefix), inline=False)
-	# 		embed.add_field(name=Lang["help_admin"], value="`{0}nick`,`{0}mute`,`{0}unmute`,`{0}ban`,`{0}unban`,`{0}clear`".format(prefix), inline=False)
-	# 		embed.add_field(name=Lang["help_log"], value="`{0}setting`,`{0}ingore`,`{0}show`,`{0}setlog`".format(prefix), inline=False)
-	# 		await ctx.send(embed=embed,delete_after=120)
-	# 	else:
-	# 		if title.lower() == "basic":
-	# 			embed = Embed(title=Lang["help_title"],
-	# 					colour=ctx.author.colour,
-	# 					timestamp=datetime.utcnow())
-	# 			embed.add_field(name=Lang['help_ui'], value="`{0}ui @user`".format(prefix), inline=True)
-	# 			embed.add_field(name=Lang['help_ri'], value="`{0}ri @role`".format(prefix), inline=True)
-	# 			embed.add_field(name=Lang['help_gi'], value="`{0}gi`".format(prefix), inline=True)
-	# 			embed.add_field(name=Lang['help_avatar'], value="`{0}avatar @user`".format(prefix), inline=True)
-	# 			embed.add_field(name=Lang['help_spotify'], value="`{0}spotify @user`".format(prefix), inline=True)
-	# 			embed.add_field(name=Lang['help_stats'], value="`{0}stats`".format(prefix), inline=True)
-	# 			embed.add_field(name=Lang['help_voicetrack'], value="`{0}voicetrack @user`".format(prefix), inline=True)
-	# 			embed.add_field(name=Lang['help_ping'], value="`{0}ping`".format(prefix), inline=True)
-	# 			embed.add_field(name=Lang['help_link'], value=Lang['help_link_value'].format(prefix), inline=True)
-	# 			await ctx.send(embed=embed,delete_after=120)
-	# 		elif title.lower() == "guild":
-	# 			embed = Embed(title=Lang["help_title"],
-	# 					colour=ctx.author.colour,
-	# 					timestamp=datetime.utcnow())
-	# 			embed.add_field(name=Lang["help_timezone"], value=Lang["help_timezone_value"].format(prefix), inline=False)
-	# 			embed.add_field(name=Lang["help_language"], value=Lang["help_language_value"].format(prefix), inline=False)
-	# 			embed.add_field(name=Lang["help_prefix"], value=Lang["help_prefix_value"].format(prefix), inline=False)
-	# 			await ctx.send(embed=embed,delete_after=120)
-	# 		elif title.lower() == "admin":
-	# 			embed = Embed(title=Lang["help_title"],
-	# 					colour=ctx.author.colour,
-	# 					timestamp=datetime.utcnow())
-	# 			embed.add_field(name="Mute User", value="`{0}mute @user`".format(prefix), inline=True)
-	# 			embed.add_field(name="unmute User", value="`{0}unmute @user`".format(prefix), inline=True)
-	# 			embed.add_field(name="\u200b",value="\u200b",inline=True)
-	# 			embed.add_field(name="BAN User", value="`{0}ban @user <reason>`\n>>> <reason> is optional".format(prefix), inline=True)
-	# 			embed.add_field(name="UNBAN User", value="`{0}unban <user id>`".format(prefix), inline=True)
-	# 			embed.add_field(name="\u200b",value="\u200b",inline=True)
-	# 			embed.add_field(name="Change Nickname", value="`{0}nick @user <new_nick>`".format(prefix), inline=True)
-	# 			embed.add_field(name="Delete Message", value="`{0}clear <count> <@user>`\n>>> <@user> is optional\n>>> if selected user, all messages sent by <user> \n>>> will be deleted".format(prefix), inline=True)
-	# 			embed.add_field(name="\u200b",value="\u200b",inline=True)
-	# 			await ctx.send(embed=embed,delete_after=120)
-	# 		elif title.lower() == "log":
-	# 			embed = Embed(title=Lang["help_title"],
-	# 					colour=ctx.author.colour,
-	# 					timestamp=datetime.utcnow())
-	# 			embed.add_field(name="Log setting", value="`{0}setting`\n>>> log display setting".format(prefix), inline=False)
-	# 			embed.add_field(name="set Log display Channel", value="`{0}setlog <info> #channel`\n>>> info = ( msg / guild / member / voice )".format(prefix), inline=False)
-	# 			embed.add_field(name="Ignore channel", value="`{0}ignore #channel`\n>>> Ignore channel messages (change/delete) log".format(prefix), inline=False)
-	# 			embed.add_field(name="Show ignore channel list", value="`{0}show`\n>>> show ignore channel list".format(prefix), inline=False)
-	# 			await ctx.send(embed=embed,delete_after=120)
-
-	@commands.hybrid_command(
 		aliases=["botinfo", "bi", "機器人資訊"],
 		with_app_command=True,
 		description="查看機器人狀態資訊",
-		help="顯示機器人版本、運行天數、伺服器數與使用者數等資訊。\n用法：stats"
+		help="顯示機器人版本、運行天數、伺服器數量與使用者數量。\n用法：stats"
 	)
 	async def stats(self, ctx: commands.Context):
 		Lang , guild_tz = get_ctx_lang_tz(ctx)
@@ -233,7 +151,7 @@ class Meta(Cog_Extension):
 			(Lang["bot_version"], self.bot.VERSION, True),
 			(Lang["bot_py-version"], python_version(), True),
 			(Lang["bot_d.py-version"], discord_version, True),
-			(Lang["bot_online-time"],f"{uptime.days} days", True),
+			(Lang["bot_online-time"],f"{uptime.days} 天", True),
 			#(Lang["bot_Ram"], f"{mem_usage:,.1f} / {mem_total:,.0f} MiB ({mem_of_total:.0f}%)", True),
 			(Lang["bot_Guilds"], f"{len(self.bot.guilds)}", True),
 			(Lang["bot_Users"], f"{len(self.bot.users)}", True)
@@ -250,7 +168,7 @@ class Meta(Cog_Extension):
 		aliases=["memberinfo", "ui", "mi", "用戶資訊", "成員資訊"],
 		with_app_command=True,
 		description="查看成員詳細資訊",
-		help="顯示指定成員的身分、狀態、加入時間、貢獻等資訊。\n用法：userinfo [成員]"
+		help="顯示指定成員的狀態、身分組、加入時間與貢獻資訊。\n用法：userinfo [成員]"
 	)
 	async def userinfo(self, ctx: commands.Context, target: Optional[Member]):
 		Lang , guild_tz = get_ctx_lang_tz(ctx)
@@ -258,7 +176,7 @@ class Meta(Cog_Extension):
 		target_avatar = target.guild_avatar if target.guild_avatar else target.display_avatar or target.default_avatar
 		info_data = get_user_guild_stats(target.id, ctx.guild.id)
 		contribution = info_data.get('total') or 0
-		last_message_time = info_data.get('last_message') or "defined"
+		last_message_time = info_data.get('last_message') or "無資料"
 		embed = Embed(title=Lang["ui_title"].format(str(target)),
 					  colour=target.colour,
 					  timestamp=datetime.utcnow())
@@ -290,7 +208,7 @@ class Meta(Cog_Extension):
 	async def useravatar(self, ctx: commands.Context, target: discord.Member):
 		target = target or ctx.author
 		target_avatar = target.guild_avatar if target.guild_avatar else target.display_avatar or target.default_avatar
-		embed = Embed(title=f"{target} Avatar",
+		embed = Embed(title=f"{target} 的頭像",
 					  colour=target.colour,
 					  timestamp=datetime.utcnow())
 
@@ -301,7 +219,7 @@ class Meta(Cog_Extension):
 		aliases=["Spotify", "SPOTIFY", "音樂", "正在聽什麼"],
 		with_app_command=True,
 		description="查看成員目前 Spotify 播放內容",
-		help="顯示指定成員目前 Spotify 的歌曲、歌手、專輯與連結。\n用法：spotify [成員]"
+		help="顯示指定成員目前 Spotify 的歌曲、歌手與專輯資訊。\n用法：spotify [成員]"
 	)
 	async def spotify(self, ctx: commands.Context, user: discord.Member = None):
 		Lang , guild_tz = get_ctx_lang_tz(ctx)
@@ -320,32 +238,32 @@ class Meta(Cog_Extension):
 		embed.set_thumbnail(url=spot.album_cover_url)
 		await ctx.send(embed=embed)
 	@commands.hybrid_command(
-		with_app_command=True,
-		aliases=["查ID", "查使用者"],
-		description="透過使用者 ID 查詢 Discord 帳號",
-		help="輸入 Discord 使用者 ID，查詢帳號基本資訊。\n用法：who <使用者ID>"
+			with_app_command=True,
+			aliases=["查ID", "查使用者"],
+			description="透過使用者 ID 查詢 Discord 帳號",
+			help="輸入 Discord 使用者 ID，查詢帳號基本資訊。\n用法：who <使用者ID>"
 	)
 	async def who(self, ctx: commands.Context, find: int):
 		try:
 			target = await self.bot.fetch_user(find)
 		except:
-			await ctx.reply(f"can't find user by this ID")
+			await ctx.reply("找不到這個 ID 對應的使用者。")
 			return
 
-		embed = Embed(title="個人信息",
+		embed = Embed(title="使用者查詢",
 					  colour=ctx.author.colour,
 					  timestamp=datetime.utcnow())
 		target_avatar = target.avatar.url if target.avatar else target.default_avatar.url
 		if target_avatar:
 			embed.set_thumbnail(url=target_avatar)
 
-		fields = [("名字", f"**{target}**", True),
+		fields = [("名稱", f"**{target}**", True),
 				  ("ID", target.id, True),
-				  ("Bot?", target.bot, True),
-				  ("Avatar", f'[Avatar link]({target_avatar})'if target_avatar else 'None',True),
+				  ("機器人帳號", target.bot, True),
+				  ("頭像", f'[頭像連結]({target_avatar})' if target_avatar else '無', True),
 				  ("狀態", str(target.status).title(), True),
-				  ("動態", f"{str(target.activity.type).split('.')[-1].title() if target.activity else 'N/A'} {target.activity.name if target.activity else ''}", True),
-				  ("創建時間", target.created_at.strftime("%d/%m/%Y %H:%M:%S"), True)]
+				  ("活動", f"{str(target.activity.type).split('.')[-1].title() if target.activity else '無'} {target.activity.name if target.activity else ''}", True),
+				  ("建立時間", target.created_at.strftime("%d/%m/%Y %H:%M:%S"), True)]
 
 		for name, value, inline in fields:
 			embed.add_field(name=name, value=value, inline=inline)
@@ -385,7 +303,7 @@ class Meta(Cog_Extension):
 	async def getuser(self, ctx: commands.Context, target: Optional[Role]):
 		role = target
 		if role is None:
-			await ctx.send("Please provide a role.")
+			await ctx.send("請提供一個身分組。")
 			return
 		empty = True
 		for member in ctx.message.guild.members:
@@ -393,13 +311,13 @@ class Meta(Cog_Extension):
 				await ctx.send("{0.mention} {0.name}: {0.id}".format(member))
 				empty = False
 		if empty:
-			await ctx.send("no one has {}".format(role.mention))
+			await ctx.send("目前沒有人擁有 {}".format(role.mention))
 		
 	@commands.hybrid_command(
 		aliases=["guildinfo", "si", "gi", "伺服器資訊"],
 		with_app_command=True,
 		description="查看伺服器詳細資訊",
-		help="顯示伺服器擁有者、成員數、頻道數、身分組數與其他統計資料。\n用法：serverinfo"
+		help="顯示伺服器擁有者、成員數、頻道數、身分組數與邀請資訊。\n用法：serverinfo"
 	)
 	async def serverinfo(self, ctx: commands.Context):
 		Lang , guild_tz = get_ctx_lang_tz(ctx)
@@ -422,7 +340,7 @@ class Meta(Cog_Extension):
 				  (Lang["gi_created_at"], format_local_time(ctx.guild.created_at, guild_tz, "%d/%m/%Y %H:%M:%S"), True),
 				  (Lang["gi_Human"], len(list(filter(lambda m: not m.bot, ctx.guild.members))), True),
 				  (Lang["gi_Bot"], len(list(filter(lambda m: m.bot, ctx.guild.members))), True),
-				  (Lang["gi_statuses"], f"?鞎?{statuses[0]} ?? {statuses[1]} ???{statuses[2]} ??{statuses[3]}", True),
+				  (Lang["gi_statuses"], f"🟢 {statuses[0]}  🌙 {statuses[1]}  ⛔ {statuses[2]}  ⚫ {statuses[3]}", True),
 				  (Lang["gi_channels"], Lang["gi_channels_all"].format(len(ctx.guild.categories),len(ctx.guild.text_channels),len(ctx.guild.voice_channels),len(ctx.guild.stage_channels)), True),
 				  (Lang["gi_Text_channels"], len(ctx.guild.text_channels), True),
 				  (Lang["gi_voice_channels"], len(ctx.guild.voice_channels), True),
@@ -435,7 +353,33 @@ class Meta(Cog_Extension):
 
 		await ctx.send(embed=embed)
 
+	@commands.hybrid_command(
+		aliases=["about", "aboutziin", "support"],
+			with_app_command=True,
+			description="查看 Ziin 介紹與支援連結",
+			help="顯示 Ziin 介紹、網頁設定網址與支援伺服器連結。\n用法：aboutziin"
+	)
+	async def aboutziin(self, ctx: commands.Context):
+		base_url = (os.getenv("WEB_DASHBOARD_URL") or os.getenv("NEXTAUTH_URL") or "http://localhost:6001").rstrip("/")
+		dashboard_url = base_url if base_url.endswith("/dashboard") else f"{base_url}/dashboard"
+		support_url = "https://discord.gg/EtQX9RB9Xr"
+
+		embed = discord.Embed(
+				title="Ziin Bot 介紹",
+				description=(
+					"Ziin 是專為 Discord 打造的紀錄與通知機器人。\n"
+					"如果你有問題，歡迎加入支援伺服器。"
+				),
+			colour=ctx.author.colour,
+			timestamp=datetime.utcnow(),
+		)
+		embed.add_field(name="網頁設定", value=dashboard_url, inline=False)
+		embed.add_field(name="支援伺服器", value=support_url, inline=False)
+
+		view = discord.ui.View()
+		view.add_item(discord.ui.Button(label="開啟網頁設定", url=dashboard_url))
+		view.add_item(discord.ui.Button(label="加入支援伺服器", url=support_url))
+		await ctx.send(embed=embed, view=view)
+
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Meta(bot))
-
-

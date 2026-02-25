@@ -5,7 +5,7 @@
     "bot_title": "機器人狀態",
     "bot_version": "Bot版本",
     "bot_py-version": "Python",
-    "bot_d.py-version": "Pycord",
+    "bot_d.py-version": "discord.py",
     "bot_online-time": "上線時長",
     "bot_Ram": "記憶體使用率",
     "bot_Guilds": "群組",
