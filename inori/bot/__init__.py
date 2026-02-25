@@ -1,0 +1,2 @@
+"""Inori bot package."""
+

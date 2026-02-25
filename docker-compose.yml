@@ -24,3 +24,13 @@ services:
     volumes:
       - ./data:/shared-data
     restart: unless-stopped
+
+  inori:
+    build:
+      context: ./inori
+      dockerfile: Dockerfile
+    env_file:
+      - ./inori/.env
+    volumes:
+      - ./inori/data:/app/data
+    restart: unless-stopped
