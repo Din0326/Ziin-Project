@@ -257,6 +257,53 @@ export default function HomePage() {
           </button>
         </div>
       </section>
+
+      <footer className="relative z-10 border-t border-white/10 bg-black/25">
+        <div className="mx-auto grid w-full max-w-7xl gap-10 px-6 py-10 md:grid-cols-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <Image src="/logo.png" alt="Ziin Bot" width={28} height={28} className="rounded-md" />
+              <span className="text-lg font-semibold">Ziin Bot</span>
+            </div>
+            <p className="mt-3 text-sm text-slate-400">Ziin © 2025-2026</p>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-slate-200">連接</h3>
+            <ul className="mt-3 space-y-2 text-sm text-slate-400">
+              <li>
+                <Link href="/dashboard" className="transition hover:text-white">控制面板</Link>
+              </li>
+              <li>
+                <a href="/api/discord/bot-invite" className="transition hover:text-white">邀請機器人</a>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-slate-200">其他</h3>
+            <ul className="mt-3 space-y-2 text-sm text-slate-400">
+              <li>
+                <a href="https://discord.gg/EtQX9RB9Xr" target="_blank" rel="noreferrer" className="transition hover:text-white">
+                  Discord
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-slate-200">規則</h3>
+            <ul className="mt-3 space-y-2 text-sm text-slate-400">
+              <li>
+                <Link href="/privacy" className="transition hover:text-white">隱私權聲明</Link>
+              </li>
+              <li>
+                <Link href="/terms" className="transition hover:text-white">使用條款</Link>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
