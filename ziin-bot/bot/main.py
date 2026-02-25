@@ -24,11 +24,14 @@ def iter_cog_extensions() -> Iterable[str]:
 
 
 class ZiinBot(commands.Bot):
+    VERSION = "2.0.0"
+
     def __init__(self) -> None:
         intents = discord.Intents.default()
         intents.message_content = True  # needed for prefix commands
         intents.members = True
         intents.guilds = True
+        intents.presences = True
 
         self.settings = load_settings()
 

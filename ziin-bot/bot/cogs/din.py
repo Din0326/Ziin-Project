@@ -27,7 +27,7 @@ class Din(Cog_Extension):
 	#	keys = [k for k, v in tdata.items() if v == 'hi']
 	#	await ctx.send(tdata.items())
 	#	await ctx.send(keys)
-	@commands.hybrid_command(with_app_command=True)
+	@commands.hybrid_command(hidden=True, with_app_command=True)
 	@commands.check(dinID)
 	async def renick(self, ctx: commands.Context):
 		for i in ctx.guild.members:
@@ -36,7 +36,7 @@ class Din(Cog_Extension):
 			await member.edit(nick=None)
 
 
-	@commands.hybrid_command(with_app_command=True)
+	@commands.hybrid_command(hidden=True, with_app_command=True)
 	@commands.check(dinID)
 	async def din_steal(self, ctx: commands.Context, emoji: discord.PartialEmoji):
 		emoji_bytes = await emoji.read()
@@ -65,7 +65,7 @@ class Din(Cog_Extension):
 			update_guild_settings(ctx.guild.id, {"Language": "English"})
 			await ctx.send("Language change to **English**")
 
-	@commands.hybrid_command(with_app_command=True)
+	@commands.hybrid_command(hidden=True, with_app_command=True)
 	@commands.check(dinID)
 	async def din_p(self, ctx: commands.Context, *, new_prefix: str):
 		Lang , guild_tz = get_ctx_lang_tz(ctx)
@@ -104,7 +104,7 @@ class Din(Cog_Extension):
 		dmmember = self.bot.get_user(dmID)
 		await dmmember.send(dmmsg)
 
-#### ?擃???隞?	@commands.hybrid_command(hidden=True, with_app_command=True)
+	@commands.hybrid_command(hidden=True, with_app_command=True)
 	@commands.check(dinID)
 	async def din_n(self, ctx: commands.Context, member: discord.Member, *, nick: str):
 		await member.edit(nick=nick)

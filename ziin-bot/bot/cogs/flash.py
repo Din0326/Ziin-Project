@@ -23,7 +23,7 @@ class Flash(Cog_Extension):
 			await msg.add_reaction("<:monkeyflash:1072838226580099112>")
 
 	@commands.check(dinID)
-	@commands.hybrid_command(with_app_command=True)
+	@commands.hybrid_command(hidden=True, with_app_command=True)
 	async def fkick(self, ctx: commands.Context, dateline: str):
 		dateline = f"{dateline} 00:00:00"
 		dateline_dt = datetime.strptime(dateline,"%d/%m/%Y %H:%M:%S")
@@ -97,16 +97,6 @@ class Flash(Cog_Extension):
 		if member.guild.id == 1072173579229200404:
 			member_channel = self.bot.get_channel(1072175214324105298)
 			await member_channel.send(f"{member} ||{member.id}|| left {member.guild}.")
-
-	@commands.check(dinID)
-	@commands.hybrid_command(with_app_command=True)
-	async def adddd(self, ctx: commands.Context):
-		Remsg = await self.bot.get_channel(1072181968676069396).fetch_message(1072222608478699570)
-		await Remsg.add_reaction("🟧")
-		await Remsg.add_reaction("🟪")
-		await Remsg.add_reaction("🟦")
-		await Remsg.add_reaction("🟩")
-		await Remsg.add_reaction("🟥")
 
 	@commands.Cog.listener()
 	async def on_raw_reaction_add(self, payload: str):

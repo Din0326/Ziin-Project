@@ -43,7 +43,12 @@ class Meta(Cog_Extension):
 			else:
 				await ctx.send("You are not allowed to use this command.")
 
-	@commands.hybrid_command(aliases=["vt"], with_app_command=True)
+	@commands.hybrid_command(
+		aliases=["vt", "語音紀錄", "語音追蹤"],
+		with_app_command=True,
+		description="查看成員語音進出紀錄",
+		help="查看指定成員在各語音頻道的加入、離開與停留時間紀錄。\n用法：voicetrack [成員]"
+	)
 	async def voicetrack(self, ctx: commands.Context, target: Optional[Member]):
 		load_Msg = await ctx.send("loading data... <a:load:854870818982723604> ")
 		await ctx.trigger_typing()
@@ -75,7 +80,12 @@ class Meta(Cog_Extension):
 				embed.add_field(name=name, value=value, inline=inline)
 		await ctx.send(embed=embed)
 		await load_Msg.delete()
-	@commands.hybrid_command(aliases=["lb","top"], with_app_command=True)
+	@commands.hybrid_command(
+		aliases=["lb", "top", "排行", "排行榜"],
+		with_app_command=True,
+		description="顯示伺服器貢獻排行榜",
+		help="顯示伺服器成員貢獻度前十名。\n用法：leaderboard"
+	)
 	async def leaderboard(self, ctx: commands.Context):
 		total = []
 		data_list = []
@@ -114,7 +124,12 @@ class Meta(Cog_Extension):
 		await load_msg.delete()
 		await ctx.send(embed=embed)
 
-	@commands.hybrid_command(aliases=["link","???","pingulink"], with_app_command=True)
+	@commands.hybrid_command(
+		aliases=["link", "邀請", "邀請連結", "pingulink"],
+		with_app_command=True,
+		description="取得機器人邀請連結",
+		help="顯示 Ziin Bot 邀請連結與支援伺服器資訊。\n用法：botlink"
+	)
 	async def botlink(self, ctx: commands.Context):
 		user = self.bot.get_user(371871742916034561)
 		user_img =user.avatar or user.default_avatar
@@ -192,7 +207,12 @@ class Meta(Cog_Extension):
 	# 			embed.add_field(name="Show ignore channel list", value="`{0}show`\n>>> show ignore channel list".format(prefix), inline=False)
 	# 			await ctx.send(embed=embed,delete_after=120)
 
-	@commands.hybrid_command(aliases=["botinfo","bi"], with_app_command=True)
+	@commands.hybrid_command(
+		aliases=["botinfo", "bi", "機器人資訊"],
+		with_app_command=True,
+		description="查看機器人狀態資訊",
+		help="顯示機器人版本、運行天數、伺服器數與使用者數等資訊。\n用法：stats"
+	)
 	async def stats(self, ctx: commands.Context):
 		Lang , guild_tz = get_ctx_lang_tz(ctx)
 		embed = Embed(title=Lang["bot_title"],
@@ -226,7 +246,12 @@ class Meta(Cog_Extension):
 		await ctx.send(embed=embed)
 
 
-	@commands.hybrid_command(aliases=["memberinfo", "ui", "mi"], with_app_command=True)
+	@commands.hybrid_command(
+		aliases=["memberinfo", "ui", "mi", "用戶資訊", "成員資訊"],
+		with_app_command=True,
+		description="查看成員詳細資訊",
+		help="顯示指定成員的身分、狀態、加入時間、貢獻等資訊。\n用法：userinfo [成員]"
+	)
 	async def userinfo(self, ctx: commands.Context, target: Optional[Member]):
 		Lang , guild_tz = get_ctx_lang_tz(ctx)
 		target = target or ctx.author
@@ -256,7 +281,12 @@ class Meta(Cog_Extension):
 
 		await ctx.send(embed=embed)
 
-	@commands.hybrid_command(aliases=["avatar"], with_app_command=True)
+	@commands.hybrid_command(
+		aliases=["avatar", "頭像"],
+		with_app_command=True,
+		description="查看成員頭像",
+		help="顯示指定成員的伺服器頭像或個人頭像。\n用法：useravatar <成員>"
+	)
 	async def useravatar(self, ctx: commands.Context, target: discord.Member):
 		target = target or ctx.author
 		target_avatar = target.guild_avatar if target.guild_avatar else target.display_avatar or target.default_avatar
@@ -266,22 +296,13 @@ class Meta(Cog_Extension):
 
 		embed.set_image(url=target_avatar.url)
 		await ctx.send(embed=embed)
-#
-	#@commands.command()
-	#async def stream(self,ctx):
-	#	for i in ctx.guild.members:
-	#		get_data = get_user_guild_stats(i.id, ctx.guild.id)
-	#		if get_data != None:
-	#			if get_data.get('stream_total_time') != None:
-	#				stream_time = get_data.get('stream_total_time')
-	#				s_time = time.strftime("%H:%M:%S", time.gmtime(int(stream_time)))
-	#				await ctx.send(f"{i.name} {s_time}")
-	#		else:
-	#			pass
-	#		#await ctx.send(f"{i.name} {stream_time}")
-	#	await ctx.send("done")
 
-	@commands.hybrid_command(aliases=["Spotify","SPOTIFY"], with_app_command=True)
+	@commands.hybrid_command(
+		aliases=["Spotify", "SPOTIFY", "音樂", "正在聽什麼"],
+		with_app_command=True,
+		description="查看成員目前 Spotify 播放內容",
+		help="顯示指定成員目前 Spotify 的歌曲、歌手、專輯與連結。\n用法：spotify [成員]"
+	)
 	async def spotify(self, ctx: commands.Context, user: discord.Member = None):
 		Lang , guild_tz = get_ctx_lang_tz(ctx)
 		user = user or ctx.author  
@@ -298,7 +319,12 @@ class Meta(Cog_Extension):
 		embed.add_field(name=Lang["spotify_time"], value=song)
 		embed.set_thumbnail(url=spot.album_cover_url)
 		await ctx.send(embed=embed)
-	@commands.hybrid_command(with_app_command=True)
+	@commands.hybrid_command(
+		with_app_command=True,
+		aliases=["查ID", "查使用者"],
+		description="透過使用者 ID 查詢 Discord 帳號",
+		help="輸入 Discord 使用者 ID，查詢帳號基本資訊。\n用法：who <使用者ID>"
+	)
 	async def who(self, ctx: commands.Context, find: int):
 		try:
 			target = await self.bot.fetch_user(find)
@@ -306,26 +332,31 @@ class Meta(Cog_Extension):
 			await ctx.reply(f"can't find user by this ID")
 			return
 
-		embed = Embed(title="?????",
+		embed = Embed(title="個人信息",
 					  colour=ctx.author.colour,
 					  timestamp=datetime.utcnow())
 		target_avatar = target.avatar.url if target.avatar else target.default_avatar.url
 		if target_avatar:
 			embed.set_thumbnail(url=target_avatar)
 
-		fields = [("???", f"**{target}**", True),
+		fields = [("名字", f"**{target}**", True),
 				  ("ID", target.id, True),
 				  ("Bot?", target.bot, True),
 				  ("Avatar", f'[Avatar link]({target_avatar})'if target_avatar else 'None',True),
-				  #("????, str(target.status).title(), True),
-				  #("???", f"{str(target.activity.type).split('.')[-1].title() if target.activity else 'N/A'} {target.activity.name if target.activity else ''}", True),
-				  ("???遜?頩?", target.created_at.strftime("%d/%m/%Y %H:%M:%S"), True)]
+				  ("狀態", str(target.status).title(), True),
+				  ("動態", f"{str(target.activity.type).split('.')[-1].title() if target.activity else 'N/A'} {target.activity.name if target.activity else ''}", True),
+				  ("創建時間", target.created_at.strftime("%d/%m/%Y %H:%M:%S"), True)]
 
 		for name, value, inline in fields:
 			embed.add_field(name=name, value=value, inline=inline)
 
 		await ctx.send(embed=embed)
-	@commands.hybrid_command(aliases=["ri"], with_app_command=True)
+	@commands.hybrid_command(
+		aliases=["ri", "身分組資訊", "職位資訊"],
+		with_app_command=True,
+		description="查看身分組資訊",
+		help="顯示指定身分組的名稱、ID、顏色、排序與成員數。\n用法：roleinfo [身分組]"
+	)
 	async def roleinfo(self, ctx: commands.Context, target: Optional[Role]):
 		Lang , guild_tz = get_ctx_lang_tz(ctx)
 		target = target or ctx.author.top_role
@@ -364,7 +395,12 @@ class Meta(Cog_Extension):
 		if empty:
 			await ctx.send("no one has {}".format(role.mention))
 		
-	@commands.hybrid_command(aliases=["guildinfo", "si", "gi"], with_app_command=True)
+	@commands.hybrid_command(
+		aliases=["guildinfo", "si", "gi", "伺服器資訊"],
+		with_app_command=True,
+		description="查看伺服器詳細資訊",
+		help="顯示伺服器擁有者、成員數、頻道數、身分組數與其他統計資料。\n用法：serverinfo"
+	)
 	async def serverinfo(self, ctx: commands.Context):
 		Lang , guild_tz = get_ctx_lang_tz(ctx)
 		data = get_guild_context(ctx.guild.id).settings
@@ -380,7 +416,7 @@ class Meta(Cog_Extension):
 					len(list(filter(lambda m: str(m.status) == "offline", ctx.guild.members)))]
 		fields = [(Lang["gi_Owner"], ctx.guild.owner.mention, True),
 				  (Lang["gi_ID"], f"`{ctx.guild.id}`", True),
-				  (Lang["gi_region"], ctx.guild.region, True),
+				  (Lang["gi_region"], str(getattr(ctx.guild, "preferred_locale", "N/A")), True),
 				  (Lang["gi_Member-count"], len(ctx.guild.members), True),
 				  #(Lang["gi_Got-BAN"], len(await ctx.guild.bans()), True),
 				  (Lang["gi_created_at"], format_local_time(ctx.guild.created_at, guild_tz, "%d/%m/%Y %H:%M:%S"), True),

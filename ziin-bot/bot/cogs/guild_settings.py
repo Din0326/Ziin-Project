@@ -10,6 +10,7 @@ from bot.services.guild_settings import (ensure_guild_defaults,
                                          get_log_settings, set_log_channel,
                                          toggle_ignored_channel)
 from bot.utils.guild_context import get_ctx_lang_tz
+from discord import app_commands
 from discord.ext import commands
 from discord.ext.commands import has_permissions
 
@@ -53,62 +54,40 @@ class GuildSettings(Cog_Extension):
         join = self.bot.get_channel(766318401441628210)
         await join.send(f"Name: {guild.name}\nID: {guild.id}\nLeave Guild!")
 
-    @commands.hybrid_command(with_app_command=True)
+    @commands.hybrid_command(
+        with_app_command=True,
+        aliases=["設定", "伺服器設定", "紀錄設定"],
+        description="查看伺服器紀錄設定與網頁設定入口",
+        help=(
+            "顯示目前伺服器的訊息/成員/語音/伺服器紀錄狀態，並提供網頁設定按鈕。\n"
+            "用法：setting"
+        ),
+    )
     @has_permissions(administrator=True)
     async def setting(self, ctx: commands.Context):
-        Lang, guild_tz = get_ctx_lang_tz(ctx)
+        Lang, _ = get_ctx_lang_tz(ctx)
         log = get_log_settings(ctx.guild.id)
-        # todo 回復 網頁版的設定介面
+        base_url = (os.getenv("WEB_DASHBOARD_URL") or os.getenv("NEXTAUTH_URL") or "http://localhost:6001").rstrip("/")
+        dashboard_url = base_url if base_url.endswith("/dashboard") else f"{base_url}/dashboard"
+        dashboard_url = f"{dashboard_url}?server={ctx.guild.id}"
 
-    @commands.hybrid_command(with_app_command=True)
-    @has_permissions(administrator=True)
-    async def ignore(self, ctx: commands.Context, channel: discord.TextChannel = None):
-        Lang, guild_tz = get_ctx_lang_tz(ctx)
-        self._debug_log(f"ignore command guild={ctx.guild.id} channel={getattr(channel, 'id', None)}")
-        added = toggle_ignored_channel(ctx.guild.id, channel.id)
-        if added:
-            await ctx.send(Lang["ignore_add"].format(channel.mention))
-            return
-        await ctx.send(Lang["ignore_del"].format(channel.mention))
+        def _state_text(value: str) -> str:
+            return "ON" if str(value).lower() == "on" else "OFF"
 
-    @commands.hybrid_command(with_app_command=True)
-    async def show(self, ctx: commands.Context):
-        Lang, guild_tz = get_ctx_lang_tz(ctx)
-        id_list = get_ignored_channels(ctx.guild.id)
         embed = discord.Embed(
-            title=Lang["ignore_all"].format(ctx.guild.name),
+            title=Lang.get("set_title", "紀錄顯示設定"),
+            description=f"網頁設定介面：{dashboard_url}",
             color=ctx.author.colour,
             timestamp=datetime.utcnow(),
         )
-        embed.set_footer(text=f"{ctx.author}")
-        if id_list != []:
-            for i in id_list:
-                igg_ch = self.bot.get_channel(int(i))
-                embed.add_field(name=igg_ch, value=igg_ch.mention)
-        else:
-            embed.add_field(name=Lang["ignore_none"], value="------")
-        await ctx.send(embed=embed)
+        embed.add_field(name="訊息", value=_state_text(log.get("msg")), inline=True)
+        embed.add_field(name="成員", value=_state_text(log.get("member")), inline=True)
+        embed.add_field(name="語音", value=_state_text(log.get("voice")), inline=True)
+        embed.add_field(name="伺服器", value=_state_text(log.get("guild")), inline=True)
 
-    @commands.hybrid_command(with_app_command=True)
-    @has_permissions(administrator=True)
-    async def setlog(self, ctx: commands.Context, info: str, channel: discord.TextChannel = None):
-        channel = channel or ctx.channel
-        Lang, guild_tz = get_ctx_lang_tz(ctx)
-        self._debug_log(f"setlog command guild={ctx.guild.id} info={info} channel={channel.id}")
-        if info == "member":
-            set_log_channel(ctx.guild.id, "member", channel.id)
-            await ctx.send(Lang["setlog_member"].format(channel.mention))
-        if info == "msg":
-            set_log_channel(ctx.guild.id, "msg", channel.id)
-            await ctx.send(Lang["setlog_msg"].format(channel.mention))
-        if info == "voice":
-            set_log_channel(ctx.guild.id, "voice", channel.id)
-            await ctx.send(Lang["setlog_voice"].format(channel.mention))
-        if info == "guild":
-            set_log_channel(ctx.guild.id, "guild", channel.id)
-            await ctx.send(Lang["setlog_guild"].format(channel.mention))
-
+        view = discord.ui.View()
+        view.add_item(discord.ui.Button(label="開啟網頁設定", url=dashboard_url))
+        await ctx.send(embed=embed, view=view)
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(GuildSettings(bot))
-
