@@ -1,4 +1,4 @@
-﻿import typing
+import typing
 from datetime import datetime
 import logging
 import os
@@ -158,7 +158,7 @@ class Twitch(Cog_Extension):
                 embed.add_field(name="Viewers", value=str(r.get("viewer_count", 0)), inline=True)
                 embed.set_thumbnail(url=usr_icon)
                 embed.set_image(url=thumbnail)
-                embed.set_footer(text="Made by Din#0203")
+                embed.set_footer(text="Made by dinnn._o")
                 await channel.send(content=text, embed=embed)
 
     @has_permissions(manage_guild=True)

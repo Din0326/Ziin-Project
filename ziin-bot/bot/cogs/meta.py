@@ -34,14 +34,14 @@ class Meta(Cog_Extension):
 			name=_name, type=getattr(ActivityType, _type, ActivityType.playing)
 		))
 
-	@commands.hybrid_command(aliases=["?湔??","play3"],hidden=True, with_app_command=True)
+	@commands.hybrid_command(aliases=["???????","play3"],hidden=True, with_app_command=True)
 	async def setactivity(self, ctx: commands.Context, *, text: str):
-		user = self.bot.get_user(371871742916034561)
-		self.message = f"{text}"
-		if ctx.author == user:
-			await self.set()
-		else:
-			await ctx.send("雿?甈???璈")
+			user = self.bot.get_user(371871742916034561)
+			self.message = f"{text}"
+			if ctx.author == user:
+				await self.set()
+			else:
+				await ctx.send("You are not allowed to use this command.")
 
 	@commands.hybrid_command(aliases=["vt"], with_app_command=True)
 	async def voicetrack(self, ctx: commands.Context, target: Optional[Member]):
@@ -92,7 +92,7 @@ class Meta(Cog_Extension):
 			total.append(contribution)
 		total = sorted(total, reverse=True)
 		lb_list = {k: v for k, v in sorted(leaderboard.items(), key=lambda item: item[1],reverse=True)}
-		embed_title = ctx.guild.name + " 鞎Ｙ摨行?銵?"
+		embed_title = ctx.guild.name + " ?????????ㄞ?"
 		embed_description = f"**1 ~ 10 ??*"
 		embed = discord.Embed(title=embed_title,
 						   description=embed_description,
@@ -104,7 +104,7 @@ class Meta(Cog_Extension):
 				usr = self.bot.get_user(int(i))
 				if usr == None:
 					continue
-				embed.add_field(name=f"{num}.", value=f"{usr.mention}\n**{lb_list[i]}** 撠?", inline=True)
+				embed.add_field(name=f"{num}.", value=f"{usr.mention}\n**{lb_list[i]}** ?蹎抆??", inline=True)
 				if num == 1:
 					embed.add_field(name="\u200b",value="\u200b",inline=True)
 					embed.add_field(name="\u200b",value="\u200b",inline=True)
@@ -114,15 +114,15 @@ class Meta(Cog_Extension):
 		await load_msg.delete()
 		await ctx.send(embed=embed)
 
-	@commands.hybrid_command(aliases=["link","??","pingulink"], with_app_command=True)
+	@commands.hybrid_command(aliases=["link","???","pingulink"], with_app_command=True)
 	async def botlink(self, ctx: commands.Context):
 		user = self.bot.get_user(371871742916034561)
 		user_img =user.avatar or user.default_avatar
-		embed = discord.Embed(title=f"{self.bot.user.name} ?隢?蝯?暺?!", url="https://discord.com/api/oauth2/authorize?client_id=616799674396967003&permissions=8&scope=bot")
+		embed = discord.Embed(title=f"{self.bot.user.name} ???嚚?????蝬??!", url="https://discord.com/api/oauth2/authorize?client_id=616799674396967003&permissions=8&scope=bot")
 		embed.set_author(name=self.bot.user, icon_url=self.bot.user.avatar.url)
 		embed.set_thumbnail(url=self.bot.user.avatar.url)
 		embed.set_footer(icon_url=(user_img.url),text=f'{user}')
-		fields = [("Owner??????身?韌", "**Din#0203?????z!**\n\n?隢ot?閬?蝞∠??⊥????雿輻Log?  \n?隢?隢??仿 z!help 隤芣??稞n???唬遙雿?憿??臬遣霅堆?隢脣 [Support Server](https://discord.gg/EtQX9RB9Xr)", True)]
+		fields = [("Owner?????????????格???謕?", "**dinnn._o??????????z!**\n\n???嚚?ot???蝘??豯??????????謍??頛舀???罪g?鞈對??  \n???嚚???嚚????? z!help ??對?????????蟡???????賃ㄞ???蟡遜?????嚚??????[Support Server](https://discord.gg/EtQX9RB9Xr)", True)]
 
 		for name, value, inline in fields:
 			embed.add_field(name=name, value=value, inline=inline)
@@ -306,20 +306,20 @@ class Meta(Cog_Extension):
 			await ctx.reply(f"can't find user by this ID")
 			return
 
-		embed = Embed(title="?犖靽⊥",
+		embed = Embed(title="?????",
 					  colour=ctx.author.colour,
 					  timestamp=datetime.utcnow())
 		target_avatar = target.avatar.url if target.avatar else target.default_avatar.url
 		if target_avatar:
 			embed.set_thumbnail(url=target_avatar)
 
-		fields = [("??", f"**{target}**", True),
+		fields = [("???", f"**{target}**", True),
 				  ("ID", target.id, True),
 				  ("Bot?", target.bot, True),
 				  ("Avatar", f'[Avatar link]({target_avatar})'if target_avatar else 'None',True),
-				  #("???, str(target.status).title(), True),
-				  #("??", f"{str(target.activity.type).split('.')[-1].title() if target.activity else 'N/A'} {target.activity.name if target.activity else ''}", True),
-				  ("?萄遣??", target.created_at.strftime("%d/%m/%Y %H:%M:%S"), True)]
+				  #("????, str(target.status).title(), True),
+				  #("???", f"{str(target.activity.type).split('.')[-1].title() if target.activity else 'N/A'} {target.activity.name if target.activity else ''}", True),
+				  ("???遜?頩?", target.created_at.strftime("%d/%m/%Y %H:%M:%S"), True)]
 
 		for name, value, inline in fields:
 			embed.add_field(name=name, value=value, inline=inline)
@@ -386,7 +386,7 @@ class Meta(Cog_Extension):
 				  (Lang["gi_created_at"], format_local_time(ctx.guild.created_at, guild_tz, "%d/%m/%Y %H:%M:%S"), True),
 				  (Lang["gi_Human"], len(list(filter(lambda m: not m.bot, ctx.guild.members))), True),
 				  (Lang["gi_Bot"], len(list(filter(lambda m: m.bot, ctx.guild.members))), True),
-				  (Lang["gi_statuses"], f"? {statuses[0]} ?? {statuses[1]} ? {statuses[2]} ??{statuses[3]}", True),
+				  (Lang["gi_statuses"], f"?鞎?{statuses[0]} ?? {statuses[1]} ???{statuses[2]} ??{statuses[3]}", True),
 				  (Lang["gi_channels"], Lang["gi_channels_all"].format(len(ctx.guild.categories),len(ctx.guild.text_channels),len(ctx.guild.voice_channels),len(ctx.guild.stage_channels)), True),
 				  (Lang["gi_Text_channels"], len(ctx.guild.text_channels), True),
 				  (Lang["gi_voice_channels"], len(ctx.guild.voice_channels), True),

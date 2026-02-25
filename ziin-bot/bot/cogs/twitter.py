@@ -18,7 +18,6 @@ logger = logging.getLogger("__main__")
 _DEBUG_TWITTER = os.getenv("DEBUG_TWITTER", "0") == "1"
 _TWITTERAPI_IO_BASE = (os.getenv("TWITTERAPI_IO_BASE", "https://api.twitterapi.io") or "https://api.twitterapi.io").rstrip("/")
 _TWITTERAPI_IO_KEY = (os.getenv("TWITTERAPI_IO_KEY", "") or "").strip()
-_X_ICON_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/X_icon.svg/1200px-X_icon.svg.png"
 
 
 def _debug_twitter(message: str) -> None:
@@ -356,8 +355,8 @@ def _build_twitter_embed_message(
     if image_url:
         embed.set_image(url=image_url)
     if video_url:
-        embed.add_field(name="Video鏈結", value=f"[點我播放影片]({video_url})", inline=False)
-    embed.set_footer(icon_url=_X_ICON_URL, text="X - Made by Din#0203")
+        embed.add_field(name=f"[暺??剜敶梁?]({video_url})", value="", inline=False)
+    embed.set_footer(text="Made by dinnn._o")
     parsed_time = _parse_twitter_time(created_at)
     embed.timestamp = parsed_time or datetime.now(tz=timezone(timedelta(hours=8)))
     return text, embed
@@ -439,7 +438,7 @@ class Twitter(Cog_Extension):
                 if not _parse_twitter_time(created_at) and created_at:
                     _debug_twitter(f"parse created_at failed handle={handle} value={created_at!r}")
                 try:
-                    message_parts = [text, tweet_url]
+                    message_parts = [text]
                     #if video_url:
                     #    message_parts.append(video_url)
                     await channel.send("\n".join(message_parts), embed=embed)
