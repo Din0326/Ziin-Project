@@ -245,15 +245,25 @@ def _parse_twitter_time(value: str) -> datetime | None:
         return None
 
 
-def _resolve_latest_tweet(handle: str) -> dict[str, str] | None:
+def _format_advanced_search_time(value: datetime) -> str:
+    return value.astimezone(timezone.utc).strftime("%Y-%m-%d_%H:%M:%S_UTC")
+
+
+def _resolve_latest_tweet(handle: str, since_utc: datetime, until_utc: datetime) -> dict[str, str] | None:
     if not _TWITTERAPI_IO_KEY:
         raise RuntimeError("TWITTERAPI_IO_KEY is missing")
 
-    url = f"{_TWITTERAPI_IO_BASE}/twitter/user/last_tweets"
-    headers = {"x-api-key": _TWITTERAPI_IO_KEY}
-    params = {"userName": handle, "includeReplies": "false", "cursor": "1"}
+    url = f"{_TWITTERAPI_IO_BASE}/twitter/tweet/advanced_search"
+    headers = {"X-API-Key": _TWITTERAPI_IO_KEY}
+    query = (
+        f"from:{handle} "
+        f"since:{_format_advanced_search_time(since_utc)} "
+        f"until:{_format_advanced_search_time(until_utc)} "
+        "include:nativeretweets"
+    )
+    params = {"query": query, "queryType": "Latest"}
 
-    _debug_twitter(f"twitterapi request start handle={handle}")
+    _debug_twitter(f"twitterapi request start handle={handle} query={query}")
     response = requests.get(url, headers=headers, params=params, timeout=30)
     response.raise_for_status()
 
@@ -355,7 +365,7 @@ def _build_twitter_embed_message(
     if image_url:
         embed.set_image(url=image_url)
     if video_url:
-        embed.add_field(name=f"[暺??剜敶梁?]({video_url})", value="", inline=False)
+        embed.add_field(name="Video Link", value=f"[Watch Video]({video_url})", inline=False)
     embed.set_footer(text="Made by dinnn._o")
     parsed_time = _parse_twitter_time(created_at)
     embed.timestamp = parsed_time or datetime.now(tz=timezone(timedelta(hours=8)))
@@ -363,6 +373,10 @@ def _build_twitter_embed_message(
 
 
 class Twitter(Cog_Extension):
+    def __init__(self, bot: commands.Bot):
+        super().__init__(bot)
+        self._last_checked_utc: dict[str, datetime] = {}
+
     @commands.Cog.listener()
     async def on_ready(self):
         if not self.check_twitter_posts.is_running():
@@ -387,8 +401,13 @@ class Twitter(Cog_Extension):
                 item = accounts.get(handle)
                 if not isinstance(item, dict):
                     continue
+                until_utc = datetime.now(timezone.utc)
+                since_utc = self._last_checked_utc.get(handle, until_utc - timedelta(hours=1))
+                if since_utc >= until_utc:
+                    since_utc = until_utc - timedelta(seconds=5)
                 try:
-                    latest = _resolve_latest_tweet(handle)
+                    latest = _resolve_latest_tweet(handle, since_utc, until_utc)
+                    self._last_checked_utc[handle] = until_utc
                 except Exception as exc:
                     _debug_twitter(f"fetch failed guild={guild.id} handle={handle} error={exc}")
                     if _DEBUG_TWITTER:
