@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 
 export default function HomePage() {
@@ -13,7 +13,6 @@ export default function HomePage() {
   const authTabRef = React.useRef<Window | null>(null);
   const authFlowRef = React.useRef(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   React.useEffect(() => {
     const isAuthTab = window.name === "ziin-auth-tab";
@@ -22,14 +21,15 @@ export default function HomePage() {
       return;
     }
 
-    const error = searchParams.get("error");
-    const callbackUrl = searchParams.get("callbackUrl") ?? "";
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("error");
+    const callbackUrl = params.get("callbackUrl") ?? "";
     const isPopupFlow = callbackUrl.includes("/auth/popup-close");
     if (!error || !isPopupFlow) {
       return;
     }
     window.location.replace("/auth/popup-close");
-  }, [router, searchParams]);
+  }, [router]);
 
   const syncSessionAfterAuth = React.useCallback(async () => {
     try {
