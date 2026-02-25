@@ -2,15 +2,18 @@ import type { NextAuthOptions } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import DiscordProvider from "next-auth/providers/discord";
 
+const discordClientId = (process.env.DISCORD_CLIENT_ID ?? "").trim();
+const discordClientSecret = (process.env.DISCORD_CLIENT_SECRET ?? "").trim();
+
 export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/",
-    error: "/"
+    error: "/auth/popup-close"
   },
   providers: [
     DiscordProvider({
-      clientId: process.env.DISCORD_CLIENT_ID ?? "",
-      clientSecret: process.env.DISCORD_CLIENT_SECRET ?? "",
+      clientId: discordClientId,
+      clientSecret: discordClientSecret,
       authorization: {
         params: {
           scope: "identify email guilds"
@@ -22,17 +25,6 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt"
   },
   callbacks: {
-    async redirect({ url, baseUrl }) {
-      if (url.startsWith("/")) {
-        return `${baseUrl}${url}`;
-      }
-
-      if (url.startsWith(baseUrl)) {
-        return url;
-      }
-
-      return baseUrl;
-    },
     async jwt({ token, account }) {
       const nextToken = token as JWT & { accessToken?: string };
       if (account?.access_token) {

@@ -49,7 +49,7 @@ export function NavMain({
             variant="outline"
             className="!h-12 w-full justify-start px-3 text-base"
             onClick={onSwitchServer}>
-            切換伺服器
+            選擇伺服器
           </Button>
           {currentServerName && (
             <p

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   IconBrandTwitch,
   IconBrandX,
@@ -65,6 +66,7 @@ export function AppSidebar({
   onNavMainClick,
   onLogout,
   onSwitchServer,
+  onLogoClick,
   currentServerName,
   user,
   ...props
@@ -75,6 +77,7 @@ export function AppSidebar({
   onNavMainClick?: (title: string) => void;
   onLogout?: () => void;
   onSwitchServer?: () => void;
+  onLogoClick?: () => void;
   currentServerName?: string;
   user?: {
     name: string;
@@ -87,10 +90,19 @@ export function AppSidebar({
       <SidebarHeader className="border-b">
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="flex items-center gap-3 p-1.5">
+            <Link
+              href="/"
+              className="hover:bg-sidebar-accent flex items-center gap-3 rounded-md p-1.5 transition-colors"
+              onClick={(event) => {
+                if (!onLogoClick) {
+                  return;
+                }
+                event.preventDefault();
+                onLogoClick();
+              }}>
               <Image src="/logo.png" alt="Ziin Bot" width={38} height={38} className="rounded-sm" />
               <span className="text-xl font-semibold">Ziin Bot</span>
-            </div>
+            </Link>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>

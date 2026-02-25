@@ -15,8 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dashboard - Ziin",
-  description: "Ziin dashboard",
+  title: "Ziin - Discord Logging System",
+  description:
+    "Ziin 是專為 Discord 打造的日誌系統，集中管理伺服器事件紀錄，包含成員、訊息、語音與頻道變更追蹤，並整合 Twitch、YouTube、X(Twitter) 社群通知。",
   icons: {
     icon: "/logo.png",
     shortcut: "/logo.png",
@@ -30,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} font-mono antialiased`}
       >
