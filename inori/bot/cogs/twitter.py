@@ -34,7 +34,10 @@ def _parse_time(value: str) -> datetime | None:
     try:
         return datetime.strptime(value, "%a %b %d %H:%M:%S %z %Y")
     except Exception:
-        return None
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except Exception:
+            return None
 
 
 def _extract_image(tweet: dict[str, object]) -> str:
@@ -176,7 +179,10 @@ class TwitterMonitor(commands.Cog):
             embed.set_image(url=image_url)
         if video_url:
             embed.add_field(name="Video Link", value=f"[Watch Video]({video_url})", inline=False)
-        embed.set_footer(text="Made by dinnn._o")
+        embed.set_footer(
+            text="X - Made by dinnn._o",
+            icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/X_logo_2023.svg/1200px-X_logo_2023.svg.png",
+        )
         embed.timestamp = _parse_time(created_at) or datetime.now(tz=timezone(timedelta(hours=8)))
 
         message = f"<@&1279868417171656714> 垂耳兔在推特發文了，點進來查看一下吧 ᐡᴗ ̫ ᴗᐡ\n{tweet_url}"
@@ -186,4 +192,3 @@ class TwitterMonitor(commands.Cog):
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(TwitterMonitor(bot))
-
