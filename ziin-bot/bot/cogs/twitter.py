@@ -108,7 +108,7 @@ def _extract_first_image_url(tweet: dict[str, object]) -> str:
     if isinstance(media, list):
         for item in media:
             if isinstance(item, dict):
-                value = item.get("url") or item.get("mediaUrl") or item.get("media_url_https") or item.get("media_url")
+                value = item.get("media_url_https") or item.get("mediaUrl") or item.get("url") or item.get("media_url")
                 if isinstance(value, str) and value.strip():
                     return value.strip()
 
@@ -117,6 +117,17 @@ def _extract_first_image_url(tweet: dict[str, object]) -> str:
         for item in photos:
             if isinstance(item, dict):
                 value = item.get("url")
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+
+    extended = tweet.get("extendedEntities")
+    if isinstance(extended, dict):
+        media = extended.get("media")
+        if isinstance(media, list):
+            for item in media:
+                if not isinstance(item, dict):
+                    continue
+                value = item.get("media_url_https") or item.get("media_url") or item.get("url")
                 if isinstance(value, str) and value.strip():
                     return value.strip()
     return ""
@@ -156,6 +167,41 @@ def _extract_first_video_url(tweet: dict[str, object]) -> str:
         direct = video.get("url")
         if isinstance(direct, str) and direct.strip():
             return direct.strip()
+
+    extended = tweet.get("extendedEntities")
+    if isinstance(extended, dict):
+        media = extended.get("media")
+        if isinstance(media, list):
+            for item in media:
+                if not isinstance(item, dict):
+                    continue
+                media_type = item.get("type")
+                if isinstance(media_type, str) and media_type.lower() not in {"video", "animated_gif"}:
+                    continue
+
+                video_info = item.get("video_info")
+                if isinstance(video_info, dict):
+                    variants = video_info.get("variants")
+                    if isinstance(variants, list):
+                        mp4_variants = []
+                        for variant in variants:
+                            if not isinstance(variant, dict):
+                                continue
+                            url = variant.get("url")
+                            content_type = variant.get("content_type")
+                            if not isinstance(url, str) or not url.strip():
+                                continue
+                            if isinstance(content_type, str) and "mp4" in content_type.lower():
+                                bitrate = variant.get("bitrate")
+                                bitrate_val = bitrate if isinstance(bitrate, int) else 0
+                                mp4_variants.append((bitrate_val, url.strip()))
+                        if mp4_variants:
+                            mp4_variants.sort(key=lambda x: x[0], reverse=True)
+                            return mp4_variants[0][1]
+
+                fallback_url = item.get("url")
+                if isinstance(fallback_url, str) and fallback_url.strip():
+                    return fallback_url.strip()
     return ""
 
 
@@ -277,6 +323,46 @@ def _resolve_latest_tweet(handle: str) -> dict[str, str] | None:
     }
 
 
+def _build_twitter_embed_message(
+    *,
+    template: str | None,
+    xuser: str,
+    tweet_url: str,
+    display_name: str,
+    screen_name: str,
+    tweet_text: str,
+    created_at: str,
+    image_url: str,
+    video_url: str,
+    profile_image_url: str,
+) -> tuple[str, discord.Embed]:
+    if not isinstance(template, str) or not template:
+        template = "{xuser} posted a new tweet!\n{url}"
+    text = template.replace("{xuser}", xuser).replace("{url}", tweet_url)
+
+    embed = discord.Embed(
+        title=" ",
+        url=tweet_url,
+        description=f"\n{tweet_text}" if tweet_text else None,
+        color=discord.Color.from_rgb(240, 171, 252),
+    )
+    author_name = f"{display_name} (@{screen_name})"
+    author_url = f"https://x.com/{screen_name}"
+    if profile_image_url:
+        embed.set_author(name=author_name, url=author_url, icon_url=profile_image_url)
+        embed.set_thumbnail(url=profile_image_url)
+    else:
+        embed.set_author(name=author_name, url=author_url)
+    if image_url:
+        embed.set_image(url=image_url)
+    if video_url:
+        embed.add_field(name="Video鏈結", value=f"[點我播放影片]({video_url})", inline=False)
+    embed.set_footer(icon_url=_X_ICON_URL, text="X - Made by Din#0203")
+    parsed_time = _parse_twitter_time(created_at)
+    embed.timestamp = parsed_time or datetime.now(tz=timezone(timedelta(hours=8)))
+    return text, embed
+
+
 class Twitter(Cog_Extension):
     @commands.Cog.listener()
     async def on_ready(self):
@@ -338,43 +424,30 @@ class Twitter(Cog_Extension):
                     _debug_twitter(f"guild={guild.id} handle={handle} new={tweet_id} but no notify channel")
                     continue
 
-                template = guild_data.get("twitter_notification_text")
-                if not isinstance(template, str) or not template:
-                    template = "{xuser} 發文了，點進來看一下吧"
-                text = template.replace("{xuser}", item["name"]).replace("{url}", tweet_url)
-                embed = discord.Embed(
-                    title=" ",
-                    url=tweet_url,
-                    description=f"\n{tweet_text}" if tweet_text else None,
-                    color=discord.Color.from_rgb(240, 171, 252),
+                text, embed = _build_twitter_embed_message(
+                    template=guild_data.get("twitter_notification_text"),
+                    xuser=item["name"],
+                    tweet_url=tweet_url,
+                    display_name=display_name,
+                    screen_name=screen_name,
+                    tweet_text=tweet_text,
+                    created_at=created_at,
+                    image_url=image_url,
+                    video_url=video_url,
+                    profile_image_url=profile_image_url,
                 )
-                author_name = f"{display_name} (@{screen_name})"
-                author_url = f"https://x.com/{screen_name}"
-                if profile_image_url:
-                    embed.set_author(name=author_name, url=author_url, icon_url=profile_image_url)
-                    embed.set_thumbnail(url=profile_image_url)
-                else:
-                    embed.set_author(name=author_name, url=author_url)
-                if image_url and not video_url:
-                    embed.set_image(url=image_url)
-                if video_url:
-                    embed.add_field(name="Video", value=video_url, inline=False)
-                embed.set_footer(icon_url=_X_ICON_URL, text="X - Made by Din#0203")
-                parsed_time = _parse_twitter_time(created_at)
-                if not parsed_time and created_at:
+                if not _parse_twitter_time(created_at) and created_at:
                     _debug_twitter(f"parse created_at failed handle={handle} value={created_at!r}")
-                embed.timestamp = parsed_time or datetime.now(tz=timezone(timedelta(hours=8)))
                 try:
                     message_parts = [text, tweet_url]
-                    if video_url:
-                        message_parts.append(video_url)
+                    #if video_url:
+                    #    message_parts.append(video_url)
                     await channel.send("\n".join(message_parts), embed=embed)
                     _debug_twitter(f"sent guild={guild.id} handle={handle} tweet={tweet_id}")
                 except Exception as exc:
                     _debug_twitter(f"send failed guild={guild.id} handle={handle} error={exc}")
 
             save_twitter_data(guild.id, guild_data)
-
     @has_permissions(manage_guild=True)
     @commands.hybrid_command(with_app_command=True)
     async def xusers(self, ctx: commands.Context, arg: str, account: typing.Optional[str] = None):
