@@ -354,7 +354,7 @@ class Meta(Cog_Extension):
 		await ctx.send(embed=embed)
 
 	@commands.hybrid_command(
-		aliases=["about", "aboutziin", "support"],
+		aliases=["about", "support"],
 			with_app_command=True,
 			description="查看 Ziin 介紹與支援連結",
 			help="顯示 Ziin 介紹、網頁設定網址與支援伺服器連結。\n用法：aboutziin"
