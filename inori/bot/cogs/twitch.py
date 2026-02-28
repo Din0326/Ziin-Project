@@ -9,7 +9,6 @@ from discord.ext import commands, tasks
 
 log = logging.getLogger(__name__)
 MONITOR_LOGIN = "inori0017"
-STATE_KEY = "twitch_last_stream_id"
 
 
 class TwitchMonitor(commands.Cog):
@@ -17,6 +16,8 @@ class TwitchMonitor(commands.Cog):
         self.bot = bot
         self._token: str | None = None
         self._token_expire_at: datetime | None = None
+        self._live_message_id: int | None = None
+        self._current_stream_id: str | None = None
         self.check_stream.start()
 
     def cog_unload(self) -> None:
@@ -80,6 +81,25 @@ class TwitchMonitor(commands.Cog):
             return rows[0]
         return None
 
+    def _build_live_embed(self, stream: dict) -> tuple[discord.Embed, str]:
+        user_login = str(stream.get("user_login", MONITOR_LOGIN)).strip() or MONITOR_LOGIN
+        title = str(stream.get("title", "Twitch Live")).strip() or "Twitch Live"
+        url = f"https://www.twitch.tv/{user_login}"
+        thumbnail_base = str(stream.get("thumbnail_url", "")).replace("{width}", "1920").replace("{height}", "1080")
+        thumbnail = f"{thumbnail_base}?ts={int(datetime.now(timezone.utc).timestamp())}" if thumbnail_base else ""
+
+        embed = discord.Embed(title=title, url=url, color=discord.Color.from_rgb(145, 70, 255), timestamp=datetime.utcnow())
+        embed.set_author(name=f"{stream.get('user_name', 'Streamer')} is live now!!")
+        embed.add_field(name="Game", value=str(stream.get("game_name", "")).strip() or "---", inline=True)
+        embed.add_field(name="Viewers", value=str(stream.get("viewer_count", 0)), inline=True)
+        if thumbnail:
+            embed.set_image(url=thumbnail)
+        embed.set_footer(
+            text="Made by dinnn._o",
+            icon_url="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png",
+        )
+        return embed, url
+
     @tasks.loop(seconds=60)
     async def check_stream(self) -> None:
         self.check_stream.change_interval(seconds=max(30, self.bot.settings.twitch_poll_seconds))
@@ -96,29 +116,31 @@ class TwitchMonitor(commands.Cog):
             return
 
         if not stream:
+            self._live_message_id = None
+            self._current_stream_id = None
             return
 
         stream_id = str(stream.get("id", "")).strip()
         if not stream_id:
             return
 
-        last_id = self.bot.state.get(STATE_KEY, "")
-        if stream_id == last_id:
+        embed, url = self._build_live_embed(stream)
+        is_new_live = stream_id != self._current_stream_id
+
+        if is_new_live or not self._live_message_id:
+            msg = await channel.send(f"<@&1279866353519558767> is live now!\n{url}", embed=embed)
+            self._live_message_id = msg.id
+            self._current_stream_id = stream_id
             return
 
-        title = str(stream.get("title", "Twitch Live")).strip() or "Twitch Live"
-        thumb = str(stream.get("thumbnail_url", "")).replace("{width}", "1280").replace("{height}", "720")
-        url = f"https://www.twitch.tv/{MONITOR_LOGIN}"
-
-        embed = discord.Embed(title=title, url=url, color=discord.Color.from_rgb(145, 70, 255))
-        if thumb:
-            embed.set_image(url=thumb)
-        embed.set_footer(
-            text="Made by dinnn._o",
-            icon_url="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png",
-        )
-        await channel.send(f"<@&1279866353519558767> 垂耳兔睡醒祈床嚕ദ്ദി₍ᐢ. ̫.ᐢ₎\n{url}", embed=embed)
-        self.bot.state.set(STATE_KEY, stream_id)
+        try:
+            msg = await channel.fetch_message(self._live_message_id)
+            await msg.edit(embed=embed)
+        except Exception as exc:
+            log.warning("twitch message edit failed: %s", exc)
+            msg = await channel.send(f"<@&1279866353519558767> is live now!\n{url}", embed=embed)
+            self._live_message_id = msg.id
+            self._current_stream_id = stream_id
 
 
 async def setup(bot: commands.Bot) -> None:
